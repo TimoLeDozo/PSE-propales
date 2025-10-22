@@ -1,0 +1,338 @@
+<script>
+  const $ = (id) => document.getElementById(id);
+  const appState = { hasApiKey: false, defaultModel: null, models: [] };
+
+  const FORM_KEYS = [
+    'f_titre','f_codeProjet','f_dateDebut','f_versionDoc','f_dureeProjet','f_thematique',
+    'f_entrepriseNom','f_entrepriseAdresse','f_clientNom','f_clientFonction','f_clientEmail','f_clientTelephone',
+    'f_entrepriseLogo','ia_probleme','ia_solution','ia_objectifs'
+  ];
+
+  function restoreForm(){ FORM_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null && $(k)) $(k).value = v; }); }
+  function persistOnInput(){ FORM_KEYS.forEach(k => { const el = $(k); if (el) el.addEventListener('input', () => localStorage.setItem(k, el.value)); }); }
+
+  (function initFiles(){
+    const fi = $('f_attachments'); if (!fi) return;
+    const hint = $('filesHint');
+    const max = parseInt(fi.getAttribute('data-max') || '5', 10);
+    fi.addEventListener('change', () => {
+      const files = Array.from(fi.files || []);
+      if (files.length > max) { alert('Jusqu\'a ' + max + ' fichiers.'); fi.value=''; if(hint) hint.textContent='Aucun fichier selectionne.'; return; }
+      if (hint) hint.textContent = files.length ? (files.length + ' fichier(s) selectionne(s).') : 'Aucun fichier selectionne.';
+    });
+  })();
+
+  let animReq = null, animStart = 0, animMaxMs = 30000;
+  function showModal(title, status){
+    $('modalTitle').textContent = title || 'Generation en cours…';
+    $('modalStatus').textContent = status || 'Veuillez patienter.';
+    $('progressBar').style.width = '0%';
+    $('progressBar').setAttribute('aria-valuenow','0');
+    $('modalResult').innerHTML = '';
+    $('btnCloseModal').classList.add('hidden');
+    $('loadingModal').classList.remove('hidden');
+    startProgressAnimation();
+  }
+  function setBar(pct){
+    const pc = Math.max(0, Math.min(100, Math.round(pct)));
+    $('progressBar').style.width = pc + '%';
+    $('progressBar').setAttribute('aria-valuenow', String(pc));
+    $('modalStatus').textContent = 'Traitement… ' + pc + '%';
+  }
+  function startProgressAnimation(){
+    animStart = performance.now();
+    const tick = (now)=>{
+      const elapsed = now - animStart;
+      const ratio = Math.min(1, elapsed / animMaxMs);
+      const eased = Math.min(99, Math.round(100 * (1 - Math.pow(1 - ratio, 2)) * 0.97 + 2));
+      setBar(eased);
+      animReq = requestAnimationFrame(tick);
+    };
+    animReq = requestAnimationFrame(tick);
+  }
+  function finishModal(success, docUrl, extra){
+    if (animReq) cancelAnimationFrame(animReq);
+    setBar(100);
+    const resultEl = $('modalResult');
+    resultEl.innerHTML = '';
+
+    if (success){
+      $('modalTitle').textContent = '?? Succes !';
+      const parts = [];
+      if (extra && extra.cost && typeof extra.cost.totalUsd === 'number') {
+        parts.push('Cout $' + extra.cost.totalUsd.toFixed(4));
+      }
+      if (extra && extra.usage) {
+        const prompt = extra.usage.prompt_tokens ?? 0;
+        const completion = extra.usage.completion_tokens ?? 0;
+        parts.push('Tokens IN ' + prompt + ' · OUT ' + completion);
+      }
+      if (extra && typeof extra.latencyMs === 'number') {
+        parts.push(extra.latencyMs + ' ms');
+      }
+      $('modalStatus').textContent = parts.length ? parts.join(' · ') : 'Document genere.';
+
+      const link = document.createElement('a');
+      link.href = docUrl;
+      link.target = '_blank';
+      link.className = 'btn bg-indigo-600 hover:bg-indigo-700 mt-4 inline-flex gap-2';
+      link.textContent = '?? Ouvrir le document';
+      resultEl.appendChild(link);
+
+      if (extra && extra.costLogUrl) {
+        const logLink = document.createElement('a');
+        logLink.href = extra.costLogUrl;
+        logLink.target = '_blank';
+        logLink.className = 'btn bg-gray-200 text-gray-800 hover:bg-gray-300 mt-3';
+        logLink.textContent = '?? Ouvrir le journal des couts';
+        resultEl.appendChild(logLink);
+      }
+
+      if (extra && extra.cost) {
+        const details = document.createElement('div');
+        details.className = 'text-sm text-gray-600 mt-3 space-y-1';
+        const cost = extra.cost;
+        details.innerHTML = `
+          <div>Input: $${(cost.inputUsd ?? 0).toFixed(4)} / Output: $${(cost.outputUsd ?? 0).toFixed(4)}</div>
+          <div>Modele: ${extra.model || appState.defaultModel || 'DeepSeek'}</div>
+        `;
+        resultEl.appendChild(details);
+      }
+    } else {
+      $('modalTitle').textContent = '? Erreur';
+      $('modalStatus').textContent = 'Une erreur est survenue.';
+      const pre = document.createElement('pre');
+      pre.className = 'pre text-left mt-2 text-red-700';
+      pre.textContent = docUrl;
+      resultEl.appendChild(pre);
+    }
+
+    $('btnCloseModal').classList.remove('hidden');
+  }
+  function hideModal(){ $('loadingModal').classList.add('hidden'); }
+
+  function collectForm(){
+    return {
+      titre: $('f_titre').value.trim(),
+      codeProjet: $('f_codeProjet').value.trim(),
+      dateDebut: $('f_dateDebut').value.trim(),
+      versionDoc: $('f_versionDoc').value.trim(),
+      dureeProjet: $('f_dureeProjet').value.trim(),
+      thematique: $('f_thematique').value.trim(),
+      entrepriseNom: $('f_entrepriseNom').value.trim(),
+      entrepriseAdresse: $('f_entrepriseAdresse').value.trim(),
+      clientNom: $('f_clientNom').value.trim(),
+      clientFonction: $('f_clientFonction').value.trim(),
+      clientEmail: $('f_clientEmail').value.trim(),
+      clientTelephone: $('f_clientTelephone').value.trim(),
+      entrepriseLogo: $('f_entrepriseLogo').value.trim(),
+      ia_probleme: $('ia_probleme').value.trim(),
+      ia_solution: $('ia_solution').value.trim(),
+      ia_objectifs: $('ia_objectifs').value.trim(),
+      deepseekModel: appState.defaultModel
+    };
+  }
+
+  let rec = null, recognizing = false, lastActiveId = 'ia_probleme', processedIdx = 0;
+  function setDictStatus(msg){ const el=$('dictStatus'); if (el) el.textContent = msg; }
+  document.addEventListener('focusin', (e) => {
+    const el = e.target;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.id) lastActiveId = el.id;
+  });
+  async function toggleDictation(){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Dictee non supportee par ce navigateur (Chrome/Edge recommande).'); return; }
+
+    const target = (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'))
+        ? document.activeElement
+        : ($(lastActiveId) || $('ia_probleme'));
+
+    if (!recognizing){
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+      } catch(err) {
+        setDictStatus('Permission micro refusee.');
+        return;
+      }
+
+      processedIdx = 0;
+      rec = new SR();
+      rec.lang = 'fr-FR';
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+
+      rec.onstart = ()=>{ recognizing = true; $('btnDictate').textContent = '?? Arreter la dictee'; setDictStatus('Ecoute en cours…'); };
+      rec.onerror = (e)=>{ setDictStatus('Erreur reconnaissance: ' + (e.error || 'inconnue')); recognizing=false; $('btnDictate').textContent='??? Dicter (remplit la zone active)'; };
+      rec.onend   = ()=>{ recognizing = false; $('btnDictate').textContent='??? Dicter (remplit la zone active)'; setDictStatus('Arrete.'); };
+
+      rec.onresult = (e)=>{
+        for (let i = processedIdx; i < e.results.length; i++){
+          const res = e.results[i];
+          const txt = res[0].transcript;
+          if (res.isFinal){
+            if (target) {
+              const add = (target.value ? target.value + ' ' : '') + txt.trim();
+              target.value = add;
+              target.dispatchEvent(new Event('input'));
+            }
+            processedIdx = i + 1;
+            setDictStatus('OK ?');
+          } else {
+            setDictStatus('… ' + txt);
+          }
+        }
+      };
+
+      try { rec.start(); } catch(err){ setDictStatus('Impossible de demarrer: ' + err.message); }
+    } else {
+      try { rec.stop(); } catch(_) {}
+    }
+  }
+
+  function updateKeyStatus(message, variant){
+    const el = $('keyStatus');
+    if (!el) return;
+    let cls = 'text-xs ';
+    if (variant === 'error') cls += 'text-red-200';
+    else if (variant === 'ok') cls += 'text-green-200';
+    else cls += 'text-indigo-100 opacity-80';
+    el.className = cls;
+    el.textContent = message;
+  }
+
+  function resolveModelLabel(id){
+    const found = (appState.models || []).find(m => m.id === id);
+    return found ? (found.label || found.id) : (id || 'DeepSeek');
+  }
+
+  function updateLlmModeLabel(modelId){
+    const span = $('llmModeLabel');
+    if (!span) return;
+    span.textContent = resolveModelLabel(modelId);
+  }
+
+  function fetchSettings(){
+    updateKeyStatus('Chargement de la configuration…', null);
+    google.script.run
+      .withSuccessHandler(onSettingsLoaded)
+      .withFailureHandler(err => updateKeyStatus('Erreur: ' + (err.message || err), 'error'))
+      .getSettings();
+  }
+
+  function onSettingsLoaded(settings){
+    appState.hasApiKey = !!(settings && settings.hasKey);
+    appState.models = (settings && settings.models) || [];
+    appState.defaultModel = resolveDeepseekModel(settings);
+    updateKeyStatus(appState.hasApiKey ? 'Cle disponible ?' : 'Aucune cle enregistree.', appState.hasApiKey ? 'ok' : 'error');
+    updateLlmModeLabel(appState.defaultModel);
+    if ($('apiKeyInput')) $('apiKeyInput').value = '';
+  }
+
+  function resolveDeepseekModel(settings){
+    if (settings && settings.defaultModel) return settings.defaultModel;
+    if (settings && settings.models && settings.models.length) return settings.models[0].id;
+    return appState.defaultModel || 'deepseek-reasoner';
+  }
+
+  function saveApiKey(){
+    const input = $('apiKeyInput');
+    if (!input) return;
+    const key = input.value.trim();
+    if (!key) { updateKeyStatus('Renseigne une cle (sk-...).', 'error'); return; }
+
+    const btn = $('btnSaveKey');
+    if (btn) btn.disabled = true;
+    updateKeyStatus('Enregistrement en cours…', null);
+
+    google.script.run
+      .withSuccessHandler(() => {
+        appState.hasApiKey = true;
+        updateKeyStatus('Cle enregistree ?', 'ok');
+        if (btn) btn.disabled = false;
+        input.value = '';
+      })
+      .withFailureHandler(err => {
+        updateKeyStatus('Erreur: ' + (err.message || err), 'error');
+        if (btn) btn.disabled = false;
+      })
+      .setApiKey(key);
+  }
+
+  function updateCostLogLink(url){
+    const link = $('costLogLink');
+    if (!link) return;
+    if (url){
+      link.href = url;
+      link.classList.remove('hidden');
+    }
+  }
+
+  function runGeneration(fd){
+    google.script.run
+      .withSuccessHandler(r => {
+        if (r.success){
+          if (r.costLogUrl) updateCostLogLink(r.costLogUrl);
+          finishModal(true, r.url, r);
+        } else {
+          finishModal(false, r.error || 'Erreur inconnue');
+        }
+      })
+      .withFailureHandler(err => finishModal(false, err.message || String(err)))
+      .generateFullProposal(fd);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    restoreForm(); persistOnInput();
+
+    const logo = $('logoIcam');
+    if (logo) {
+      google.script.run.withSuccessHandler(function(dataUrl){ if (dataUrl) logo.src = dataUrl; }).getIcamLogoDataUrl();
+    }
+
+    google.script.run
+      .withSuccessHandler(function(url){ if (url) updateCostLogLink(url); })
+      .getCostLogUrl_public();
+
+    fetchSettings();
+
+    const btnGenerate = $('btnGenerateAll');
+    if (btnGenerate) {
+      btnGenerate.addEventListener('click', () => {
+        const fd = collectForm();
+        const errs = [];
+        if (!fd.titre) errs.push('Le titre est obligatoire');
+        if (!fd.entrepriseNom) errs.push("Le nom de l'entreprise est obligatoire");
+        if (!fd.ia_probleme) errs.push('Le probleme principal est obligatoire');
+        if (!appState.hasApiKey) errs.push('La cle API DeepSeek est requise');
+        if (errs.length){ alert('?? Merci de corriger :\n\n' + errs.join('\n')); return; }
+
+        showModal('?? Lancement', 'Estimation du cout…');
+
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.est) {
+              const est = res.est;
+              const line = 'Estimation cout: $' + est.total.toFixed(4) +
+                           '  | IN ' + est.input.tokens + ' tok' +
+                           '  | OUT ' + est.output.tokens + ' tok' +
+                           '  | Modele: ' + resolveModelLabel(est.model) + (est.assumeCacheHit ? ' (cache hit)' : ' (cache miss)');
+              $('modalStatus').textContent = line;
+            }
+            if (res && res.sheetUrl) updateCostLogLink(res.sheetUrl);
+            runGeneration(fd);
+          })
+          .withFailureHandler(() => runGeneration(fd))
+          .estimateAndLogCost_public(fd);
+      });
+    }
+
+    const btnClose = $('btnCloseModal'); if (btnClose) btnClose.addEventListener('click', hideModal);
+    const overlay = $('loadingModal'); if (overlay) overlay.addEventListener('click', e => { if (e.target.id === 'loadingModal') hideModal(); });
+
+    const btnDict = $('btnDictate'); if (btnDict) btnDict.addEventListener('click', toggleDictation);
+    const btnSave = $('btnSaveKey'); if (btnSave) btnSave.addEventListener('click', saveApiKey);
+  });
+</script>

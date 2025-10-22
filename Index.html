@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MSI Propales</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <?!= include('Styles'); ?>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <main class="max-w-4xl mx-auto p-4 pb-8">
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 mb-6 text-white shadow-lg">
+      <div class="flex flex-col lg:flex-row gap-6 justify-between">
+        <div class="flex items-center gap-4">
+          <img id="logoIcam" alt="Icam" class="h-10 w-auto rounded bg-white p-1 shadow-sm" />
+          <div>
+            <h1 class="text-3xl font-bold mb-1">Generateur de propositions ICAM  PSE</h1>
+            <p class="text-indigo-100">Copie le modele, remplit par <em>Color Mapping</em>, journalise les couts DeepSeek.</p>
+          </div>
+        </div>
+        <div class="w-full max-w-xs space-y-2">
+          <label class="text-sm font-semibold text-indigo-100" for="apiKeyInput">Cle API DeepSeek</label>
+          <div class="flex gap-2">
+            <input id="apiKeyInput" type="password" class="flex-1 input" placeholder="sk-..." />
+            <button id="btnSaveKey" type="button" class="btn bg-white text-indigo-700 hover:bg-indigo-50 shadow">Enregistrer</button>
+          </div>
+          <p id="keyStatus" class="text-xs text-indigo-100 opacity-80">Cle non verifiee.</p>
+          <a id="costLogLink" href="#" target="_blank" class="hidden btn bg-white text-indigo-700 hover:bg-indigo-50 shadow w-full text-center">?? Journal des couts</a>
+        </div>
+      </div>
+    </div>
+
+    <section class="card">
+      <h2 class="section-title">?? Informations Projet</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="label">Titre *</label><input id="f_titre" class="input" placeholder="Propale Velibor"></div>
+        <div><label class="label">Code projet</label><input id="f_codeProjet" class="input" placeholder="144-16"></div>
+        <div><label class="label">Date de debut</label><input id="f_dateDebut" class="input" type="date"></div>
+        <div><label class="label">Version</label><input id="f_versionDoc" class="input" placeholder="V2"></div>
+        <div><label class="label">Duree</label><input id="f_dureeProjet" class="input" placeholder="2 ans"></div>
+        <div><label class="label">Thematique</label><input id="f_thematique" class="input" placeholder="Amelioration des flux logistiques"></div>
+      </div>
+
+      <h2 class="section-title">?? Entreprise & Contact</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="label">Entreprise *</label><input id="f_entrepriseNom" class="input" placeholder="Velibor SA"></div>
+        <div><label class="label">Adresse</label><input id="f_entrepriseAdresse" class="input" placeholder="49 bis, rue Sedaine, 75011 Paris"></div>
+        <div><label class="label">Nom du contact</label><input id="f_clientNom" class="input" placeholder="Jean Dupont"></div>
+        <div><label class="label">Fonction</label><input id="f_clientFonction" class="input" placeholder="Directeur Technique"></div>
+        <div><label class="label">Email</label><input id="f_clientEmail" class="input" type="email" placeholder="jean@exemple.com"></div>
+        <div><label class="label">Telephone</label><input id="f_clientTelephone" class="input" type="tel" placeholder="01 23 45 67 89"></div>
+        <div class="md:col-span-2"><label class="label">Logo (URL image)</label><input id="f_entrepriseLogo" class="input" placeholder="https://.../logo.png"></div>
+      </div>
+
+      <h2 class="section-title">?? Brief pour l'IA</h2>
+      <p class="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded-lg border border-blue-200">
+        DeepSeek remplit <strong>Contexte</strong>, <strong>Demarche</strong>, <strong>Phases</strong> et la <strong>Phrase</strong>. Plus le brief est precis, meilleur sera le resultat.
+      </p>
+      <div class="space-y-4">
+        <div><label class="label">Probleme principal *</label><textarea id="ia_probleme" rows="3" class="input" placeholder="Retards de livraison, manque de tracabilite..."></textarea></div>
+        <div><label class="label">Solution proposee</label><textarea id="ia_solution" rows="3" class="input" placeholder="5S, outil de tracking, formation equipes..."></textarea></div>
+        <div><label class="label">Objectifs cles</label><textarea id="ia_objectifs" rows="2" class="input" placeholder="Reduire de 20% les temps de preparation, etc."></textarea></div>
+      </div>
+
+      <h2 class="section-title">?? Pieces jointes & dictee (prepare)</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="label">Ajouter des documents (max 5  multi)</label>
+          <input id="f_attachments" class="input" type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.jpeg,.jpg,.png,.mp3,.mp4" data-max="5">
+          <p class="text-xs text-gray-500 mt-1" id="filesHint">Aucun fichier selectionne.</p>
+        </div>
+        <div>
+          <label class="label">Dictee vocale</label>
+          <button id="btnDictate" type="button" class="btn bg-pink-600 hover:bg-pink-700">??? Dicter (remplit la zone active)</button>
+          <p id="dictStatus" class="text-xs text-gray-500 mt-1">Pret.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card text-center">
+      <button id="btnGenerateAll" class="btn bg-green-600 hover:bg-green-700 text-lg py-4 px-8 inline-flex items-center gap-2">
+        <span>?</span><span>Generer la proposition</span>
+      </button>
+      <p class="text-xs text-gray-500 mt-3">Mode LLM : <strong id="llmModeLabel">DeepSeek (cle requise)</strong>.</p>
+    </section>
+  </main>
+
+  <div id="loadingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 shadow-2xl w-full max-w-md">
+      <h3 id="modalTitle" class="text-xl font-bold text-center mb-1">Generation en cours...</h3>
+      <p id="modalStatus" class="text-center text-gray-600 mb-4">Veuillez patienter.</p>
+      <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden" aria-valuemin="0" aria-valuemax="100">
+        <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-200" style="width: 0%"></div>
+      </div>
+      <div id="modalResult" class="text-center mt-4"></div>
+      <button id="btnCloseModal" class="hidden mt-4 w-full btn bg-gray-500 hover:bg-gray-600">Fermer</button>
+    </div>
+  </div>
+
+  <?!= include('Script'); ?>
+</body>
+</html>
