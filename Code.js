@@ -1,5 +1,5 @@
 /***** ===========================================================
- *  MSI Propales  WebApp 1-clic (DeepSeek)  v0.2.0
+ *  MSI Propales  WebApp 1-clic (DeepSeek)  v0.2.0 Toni
  *  - Color Mapping + [[placeholders]]
  *  - Anti-doublon clientNom/entrepriseNom (meme paragraphe)
  *  - Copie dans dossier Drive CIBLE
