@@ -1,0 +1,302 @@
+<script>
+HEAD
+const $ = id => document.getElementById(id);
+
+/* ---------- helpers 03/11/2025 ---------- */
+function showModal(title, status, pct = 0) {
+  $('modalTitle').textContent   = title;
+  $('modalStatus').textContent  = status;
+  $('progressBar').style.width  = pct + '%';
+  $('modalResult').innerHTML    = '';
+  $('btnCloseModal').classList.add('hidden');
+  $('modal').classList.remove('hidden');
+}
+function hideModal() { $('modal').classList.add('hidden'); }
+
+/* ---------- collect ---------- */
+function collectForm() {
+  const fields = [
+    'titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique',
+    'entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo',
+    'contexte','demarche','phases','phrase'
+  ];
+  const out = {};
+  fields.forEach(f => out[f] = $(`f_${f}`)?.value.trim() || '');
+  return out;
+}
+
+/* ---------- main button ---------- */
+$('btnGenerate').addEventListener('click', () => {
+  const fd = collectForm();
+  if (!fd.titre || !fd.entrepriseNom) {
+    alert('⚠️ Titre et Entreprise sont obligatoires'); return;
+  }
+  showModal('🚀 Lancement', 'Copie du modèle…', 15);
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showModal('🎉 Succès', 'Document créé', 100);
+        $('modalResult').innerHTML =
+          `<a href="${res.url}" target="_blank" class="btn bg-indigo-600 hover:bg-indigo-700 mt-4 inline-block">📄 Ouvrir le document</a>`;
+      } else {
+        showModal('❌ Erreur', res.error || 'Erreur inconnue', 0);
+      }
+      $('btnCloseModal').classList.remove('hidden');
+    })
+    .withFailureHandler(err => {
+      showModal('❌ Erreur', err.message || String(err), 0);
+      $('btnCloseModal').classList.remove('hidden');
+    })
+    .generateFromForm(fd);
+});
+
+$('btnCloseModal').addEventListener('click', hideModal);
+$('modal').addEventListener('click', e => { if (e.target.id === 'modal') hideModal(); });
+</script>
+=======
+  const $ = (sel) => document.querySelector(sel);
+  const state = {
+    models: [],
+    pricing: {},
+    defaultModel: null,
+    logUrl: null,
+  };
+
+  window.addEventListener("load", () => {
+    $("#btnSaveKey").addEventListener("click", onSaveKey);
+    $("#btnEstimate").addEventListener("click", onEstimate);
+    $("#proposalForm").addEventListener("submit", onGenerate);
+
+    google.script.run
+      .withSuccessHandler(initFromSettings)
+      .withFailureHandler((err) =>
+        setStatus(
+          "Erreur init: " + (err && err.message ? err.message : err),
+          true
+        )
+      )
+      .getSettings();
+
+    google.script.run
+      .withSuccessHandler(showLogUrl)
+      .withFailureHandler(() => {})
+      .getCostLogUrl_public();
+  });
+
+  function initFromSettings(settings) {
+    state.models = settings && settings.models ? settings.models : [];
+    state.pricing = settings && settings.pricing ? settings.pricing : {};
+    state.defaultModel =
+      settings && settings.defaultModel ? settings.defaultModel : null;
+
+    const modelSel = $("#deepseekModel");
+    modelSel.innerHTML = "";
+    state.models.forEach((m) => {
+      const opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = m.label || m.id;
+      if (state.defaultModel && state.defaultModel === m.id) {
+        opt.selected = true;
+      }
+      modelSel.appendChild(opt);
+    });
+
+    if (!modelSel.value && state.models.length) {
+      modelSel.value = state.models[0].id;
+    }
+
+    google.script.run
+      .withSuccessHandler((info) => {
+        setStatus(
+          info && info.hasKey ? "Cle presente." : "Aucune cle.",
+          !(info && info.hasKey)
+        );
+      })
+      .withFailureHandler((err) => setStatus("Erreur: " + err.message, true))
+      .hasApiKey();
+  }
+
+  function showLogUrl(url) {
+    state.logUrl = url || null;
+    const el = $("#logLink");
+    if (!el) return;
+    if (state.logUrl) {
+      el.innerHTML = `<a href="${state.logUrl}" target="_blank">Ouvrir le journal MSI_Cost_Log</a>`;
+    } else {
+      el.textContent = "Journal non encore cree.";
+    }
+  }
+
+  function onEstimate() {
+    const form = $("#proposalForm");
+    if (!form.reportValidity()) return;
+    const data = collectFormData();
+    setStatus("Estimation en cours...", false);
+    disableActions(true);
+
+    google.script.run
+      .withSuccessHandler((res) => {
+        disableActions(false);
+        if (!res || !res.est) {
+          return setStatus("Estimation indisponible.", true);
+        }
+        setStatus("Estimation enregistree.", false);
+        renderEstimation(res.est);
+        if (res.sheetUrl) showLogUrl(res.sheetUrl);
+      })
+      .withFailureHandler((err) => {
+        disableActions(false);
+        setStatus("Erreur: " + (err && err.message ? err.message : err), true);
+      })
+      .estimateAndLogCost_public(data);
+  }
+
+  function onGenerate(evt) {
+    evt.preventDefault();
+    const form = $("#proposalForm");
+    if (!form.reportValidity()) return;
+    const data = collectFormData();
+    setStatus("Generation en cours...", false);
+    disableActions(true);
+    $("#output").textContent = "";
+    $("#metrics").innerHTML = "";
+    $("#links").innerHTML = "";
+
+    google.script.run
+      .withSuccessHandler((res) => {
+        disableActions(false);
+        if (!res || !res.success) {
+          return setStatus(
+            "Generation echouee: " +
+              (res && res.error ? res.error : "Erreur inconnue"),
+            true
+          );
+        }
+        setStatus(
+          "Propale generee (" + (res.latencyMs || "?") + " ms).",
+          false
+        );
+        renderGeneration(res);
+        if (res.costLogUrl) showLogUrl(res.costLogUrl);
+      })
+      .withFailureHandler((err) => {
+        disableActions(false);
+        setStatus("Erreur: " + (err && err.message ? err.message : err), true);
+      })
+      .generateFullProposal(data);
+  }
+
+  function collectFormData() {
+    const form = $("#proposalForm");
+    const fd = new FormData(form);
+    const data = {};
+    fd.forEach((value, key) => {
+      if (typeof value === "string") {
+        data[key] = value.trim();
+      } else {
+        data[key] = value;
+      }
+    });
+    // On ne recupere plus la temperature et les tokens
+    return data;
+  }
+
+  function disableActions(disabled) {
+    $("#btnEstimate").disabled = disabled;
+    $("#btnGenerate").disabled = disabled;
+  }
+
+  function renderEstimation(est) {
+    const metrics = $("#metrics");
+    if (!metrics) return;
+    const lines = [
+      { label: "Modele", value: est.model },
+      { label: "Cache", value: est.assumeCacheHit ? "hit" : "miss" },
+      { label: "Tokens entree", value: est.input.tokens },
+      { label: "Cout entree (USD)", value: formatUsd(est.input.cost) },
+      { label: "Tokens sortie", value: est.output.tokens },
+      { label: "Pages cible", value: est.output.pages },
+      { label: "Cout sortie (USD)", value: formatUsd(est.output.cost) },
+      { label: "Total (USD)", value: formatUsd(est.total), total: true },
+    ];
+    metrics.innerHTML = lines
+      .map(
+        (l) =>
+          `<div class="kv${l.total ? " total" : ""}"><span>${
+            l.label
+          }</span><span>${l.value}</span></div>`
+      )
+      .join("");
+    $("#output").textContent =
+      "Estimation effectuee. Lance la generation pour obtenir le document.";
+  }
+
+  function renderGeneration(res) {
+    const output = $("#output");
+    if (res.aiSections) {
+      output.textContent = JSON.stringify(res.aiSections, null, 2);
+    } else if (res.llmContent) {
+      output.textContent = res.llmContent;
+    } else {
+      output.textContent = "Document genere. Voir liens ci-dessous.";
+    }
+
+    const links = $("#links");
+    const items = [];
+    if (res.url) {
+      items.push(
+        `<a href="${res.url}" target="_blank">Ouvrir le document genere</a>`
+      );
+    }
+    if (res.costLogUrl) {
+      items.push(
+        `<a href="${res.costLogUrl}" target="_blank">Consulter le journal des couts</a>`
+      );
+    }
+    links.innerHTML = items.length
+      ? items.map((x) => `<div>${x}</div>`).join("")
+      : "";
+
+    const metrics = $("#metrics");
+    const usage = res.usage || {};
+    const cost = res.cost || {};
+    const rows = [
+      { label: "Modele", value: res.model },
+      { label: "Prompt tokens", value: usage.prompt_tokens ?? 0 },
+      { label: "Completion tokens", value: usage.completion_tokens ?? 0 },
+      { label: "Total tokens", value: usage.total_tokens ?? 0 },
+      { label: "Cout input (USD)", value: formatUsd(cost.inputUsd) },
+      { label: "Cout output (USD)", value: formatUsd(cost.outputUsd) },
+      {
+        label: "Cout total (USD)",
+        value: formatUsd(cost.totalUsd),
+        total: true,
+      },
+      { label: "Latence (ms)", value: res.latencyMs ?? "" },
+    ];
+    metrics.innerHTML = rows
+      .map(
+        (l) =>
+          `<div class="kv${l.total ? " total" : ""}"><span>${
+            l.label
+          }</span><span>${l.value}</span></div>`
+      )
+      .join("");
+  }
+
+  function setStatus(msg, isError) {
+    const el = $("#runStatus");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "status " + (isError ? "error" : "ok");
+  }
+
+  function formatUsd(value) {
+    if (value == null || value === "") return "0";
+    const num = Number(value);
+    if (isNaN(num)) return String(value);
+    return num.toFixed(4);
+  }
+</script>
+>>>>>>> 206bc04abad209f99659681ac76d907c6a1b2fe2
