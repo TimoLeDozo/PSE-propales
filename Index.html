@@ -286,7 +286,8 @@
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px 22px; }
     .field label { display: block; margin-bottom: 8px; font-size: 0.78rem; letter-spacing: 0.14em; color: rgba(255, 255, 255, 0.65); text-transform: uppercase; }
     .field input,
-    .field textarea {
+    .field textarea,
+    .field select {
       width: 100%;
       padding: 14px 16px;
       border-radius: 16px;
@@ -300,8 +301,10 @@
       min-height: 52px;
     }
     .field textarea { min-height: 120px; }
+    .field select { appearance: none; cursor: pointer; }
     .field input:focus,
-    .field textarea:focus {
+    .field textarea:focus,
+    .field select:focus {
       outline: none;
       border-color: rgba(0, 255, 255, 0.6);
       box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.25);
@@ -309,6 +312,26 @@
     }
     .grid-span-2 { grid-column: span 2; }
     .actions { text-align: center; display: grid; gap: 16px; margin-top: 20px; }
+    .action-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+    .secondary-button {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      padding: 16px 28px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    }
+    .secondary-button:hover,
+    .secondary-button.active {
+      transform: translateY(-3px);
+      background: rgba(0, 255, 255, 0.12);
+      box-shadow: 0 28px 46px rgba(0, 0, 0, 0.55);
+    }
     #btnGenerate { background: var(--gradient-primary); color: #050505; border: none; border-radius: 999px; padding: 18px 34px; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.12em; cursor: pointer; transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55); }
     #btnGenerate:hover { transform: translateY(-5px); box-shadow: 0 32px 60px rgba(0, 0, 0, 0.6); }
     .microcopy { font-size: 0.75rem; color: rgba(255, 255, 255, 0.45); letter-spacing: 0.1em; text-transform: uppercase; }
@@ -569,8 +592,45 @@
               <div class="field grid-span-2"><label for="f_phrase">Phrase de clôture</label><textarea id="f_phrase" rows="2" placeholder="(Généré / Edition manuelle possible)"></textarea></div>
             </div>
             <div class="actions">
-              <button id="btnGenerate">✨ Générer la propale</button>
+              <div class="action-buttons">
+                <button type="button" id="btnDictation" class="secondary-button">🎙️ Lancer la dictée</button>
+                <button type="button" id="btnGenerate">✨ Générer la propale</button>
+              </div>
               <p class="microcopy">Uniquement Color-Mapping · Aucun placeholder [[…]]</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="console-section">
+      <div class="console-wrapper">
+        <div class="form-panels">
+          <div class="glass-panel">
+            <div class="panel-title">🎛️ Paramètres LLM & Journalisation</div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="f_deepseekModel">Modèle DeepSeek</label>
+                <select id="f_deepseekModel">
+                  <option value="deepseek-reasoner" selected>DeepSeek Reasoner</option>
+                  <option value="deepseek-chat">DeepSeek Chat</option>
+                </select>
+              </div>
+              <div class="field"><label for="f_llmTemperature">Température</label><input id="f_llmTemperature" type="number" min="0" max="2" step="0.1" placeholder="0.6" value="0.6"></div>
+              <div class="field"><label for="f_llmTopP">Top-p</label><input id="f_llmTopP" type="number" min="0" max="1" step="0.05" placeholder="0.9" value="0.9"></div>
+              <div class="field"><label for="f_llmMaxTokens">Max tokens</label><input id="f_llmMaxTokens" type="number" min="200" max="4000" step="50" placeholder="1800" value="1800"></div>
+              <div class="field"><label for="f_journalHorodatage">Horodatage journal</label><input id="f_journalHorodatage" type="datetime-local"></div>
+              <div class="field">
+                <label for="f_journalType">Type d’événement</label>
+                <select id="f_journalType">
+                  <option value="generation" selected>Génération LLM</option>
+                  <option value="dictation">Dictée vocale</option>
+                  <option value="edition">Édition manuelle</option>
+                  <option value="revision">Relecture</option>
+                </select>
+              </div>
+              <div class="field grid-span-2"><label for="f_journalCours">Journal de cours</label><textarea id="f_journalCours" placeholder="Notes pédagogiques, décisions prises, points ouverts…"></textarea></div>
+              <div class="field grid-span-2"><label for="f_log">Log automatisé</label><textarea id="f_log" placeholder="Les événements techniques et dictée seront consignés ici." readonly></textarea></div>
             </div>
           </div>
         </div>
@@ -837,6 +897,15 @@
     }
 
     const $ = (id) => document.getElementById(id);
+    function appendLog(message) {
+      const logEl = $('f_log');
+      if (!logEl) return;
+      const now = new Date();
+      const timeLabel = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const line = `[${timeLabel}] ${message}`;
+      logEl.value = logEl.value ? `${logEl.value}\n${line}` : line;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
     function showModal(title, status, pct = 0) {
       $('modalTitle').textContent = title;
       $('modalStatus').textContent = status;
@@ -846,12 +915,158 @@
       $('modal').classList.add('active');
     }
     function hideModal() { $('modal').classList.remove('active'); }
+    const decimalFields = new Set(['llmTemperature', 'llmTopP']);
+    const integerFields = new Set(['llmMaxTokens']);
+    const rawFields = new Set(['log']);
     function collectForm() {
-      const fields = ['titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','contexte','demarche','phases','phrase'];
+      const fields = ['titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
       const out = {};
-      fields.forEach(f => out[f] = ($('f_' + f)?.value || '').trim());
+      fields.forEach(f => {
+        const el = $('f_' + f);
+        if (!el) {
+          out[f] = '';
+          return;
+        }
+        const raw = el.value ?? '';
+        if (rawFields.has(f)) {
+          out[f] = raw;
+          return;
+        }
+        const trimmed = typeof raw === 'string' ? raw.trim() : raw;
+        if (decimalFields.has(f)) {
+          const numeric = parseFloat(String(trimmed).replace(',', '.'));
+          out[f] = Number.isFinite(numeric) ? numeric : null;
+          return;
+        }
+        if (integerFields.has(f)) {
+          const numeric = parseInt(String(trimmed), 10);
+          out[f] = Number.isFinite(numeric) ? numeric : null;
+          return;
+        }
+        out[f] = trimmed;
+      });
+
+      if (!out.deepseekModel) out.deepseekModel = 'deepseek-reasoner';
+      if (!out.journalType) out.journalType = 'generation';
+
+      if (out.journalHorodatage) {
+        const parsed = new Date(out.journalHorodatage);
+        if (!Number.isNaN(parsed.getTime())) {
+          out.journalHorodatage = parsed.toISOString();
+        }
+      } else {
+        const now = new Date();
+        const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16);
+        const input = $('f_journalHorodatage');
+        if (input && !input.value) input.value = localIso;
+        out.journalHorodatage = now.toISOString();
+      }
       return out;
     }
+    let speechRecognition = null;
+    let dictationActive = false;
+    let dictationStopping = false;
+    let dictationTarget = null;
+
+    function initSpeechDictation() {
+      const btn = $('btnDictation');
+      if (!btn) return;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        btn.disabled = true;
+        btn.textContent = '🎙️ Dictée non supportée';
+        appendLog("Dictée vocale non supportée par ce navigateur.");
+        return;
+      }
+
+      speechRecognition = new SpeechRecognition();
+      speechRecognition.lang = 'fr-FR';
+      speechRecognition.continuous = true;
+      speechRecognition.interimResults = true;
+
+      speechRecognition.onresult = (event) => {
+        if (!dictationTarget) return;
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal && result[0]) {
+            finalTranscript += result[0].transcript;
+          }
+        }
+        if (!finalTranscript) return;
+        const insert = finalTranscript.trim();
+        if (!insert) return;
+        const current = dictationTarget.value || '';
+        const separator = current && !/[\s\n]$/.test(current) ? ' ' : '';
+        dictationTarget.value = current + separator + insert;
+        dictationTarget.dispatchEvent(new Event('input', { bubbles: true }));
+        appendLog(`Dictée → ${insert}`);
+      };
+
+      speechRecognition.onerror = (event) => {
+        appendLog(`Erreur dictée: ${event.error || 'inconnue'}`);
+        dictationStopping = true;
+        dictationActive = false;
+        try {
+          speechRecognition.stop();
+        } catch (_) {}
+      };
+
+      speechRecognition.onstart = () => {
+        dictationActive = true;
+        dictationStopping = false;
+        btn.classList.add('active');
+        btn.textContent = '🛑 Arrêter la dictée';
+        appendLog('Dictée vocale démarrée.');
+      };
+
+      speechRecognition.onend = () => {
+        btn.classList.remove('active');
+        btn.textContent = '🎙️ Lancer la dictée';
+        if (!dictationStopping && dictationActive) {
+          dictationActive = false;
+          appendLog('Dictée interrompue.');
+        }
+        dictationStopping = false;
+      };
+
+      btn.addEventListener('click', () => {
+        if (!speechRecognition) return;
+        if (!dictationActive) {
+          if (!dictationTarget) dictationTarget = $('f_contexte');
+          dictationStopping = false;
+          try {
+            speechRecognition.start();
+          } catch (err) {
+            appendLog(`Impossible de démarrer la dictée: ${err.message || err}`);
+          }
+        } else {
+          dictationStopping = true;
+          dictationActive = false;
+          try {
+            speechRecognition.stop();
+          } catch (_) {}
+          appendLog('Dictée arrêtée par l’utilisateur.');
+        }
+      });
+
+      appendLog('Dictée vocale prête.');
+    }
+
+    document.addEventListener('focusin', (event) => {
+      const target = event.target;
+      if (!target) return;
+      if (target.matches('textarea, input[type="text"], input[type="search"], input[type="email"], input[type="tel"], input[type="url"], input[type="number"]')) {
+        dictationTarget = target;
+      }
+    });
+
+    appendLog('Console initialisée.');
+    dictationTarget = $('f_contexte') || null;
+    initSpeechDictation();
+
     const btnGenerate = $('btnGenerate');
     if (btnGenerate) {
       btnGenerate.addEventListener('click', () => {
@@ -860,9 +1075,11 @@
           alert('⚠️ Le titre et le nom de l\'entreprise sont obligatoires.');
           return;
         }
+        appendLog('Déclenchement de la génération DeepSeek.');
         showModal('🚀 Lancement', 'Copie du modèle…', 18);
         const runner = (typeof google !== 'undefined' && google.script && google.script.run) ? google.script.run : null;
         if (!runner) {
+          appendLog('google.script.run indisponible (mode hors Apps Script).');
           setTimeout(() => {
             $('modalStatus').textContent = 'Prévisualisation locale (Apps Script requis).';
             $('progressBar').style.width = '100%';
@@ -871,18 +1088,22 @@
           }, 600);
           return;
         }
+        appendLog('Transmission des données à Apps Script.');
         runner
           .withSuccessHandler(res => {
             if (res && res.success) {
               showModal('🎉 Succès', 'Document créé', 100);
               $('modalResult').innerHTML = `<a href="${res.url}" target="_blank" rel="noopener">📄 Ouvrir le document</a>`;
+              appendLog(`Succès génération · Doc: ${res.url}`);
             } else {
               showModal('❌ Erreur', (res && res.error) || 'Erreur inconnue', 0);
+              appendLog(`Erreur génération: ${(res && res.error) || 'inconnue'}`);
             }
             $('btnCloseModal').style.display = 'inline-flex';
           })
           .withFailureHandler(err => {
             showModal('❌ Erreur', err && err.message ? err.message : String(err), 0);
+            appendLog(`Erreur technique: ${err && err.message ? err.message : String(err)}`);
             $('btnCloseModal').style.display = 'inline-flex';
           })
           .generateFromForm(fd);
