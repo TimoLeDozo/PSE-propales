@@ -784,6 +784,10 @@ function generateFullProposal(formData) {
   }
 }
 
+function generateFromForm(formData) {
+  return generateFullProposal(formData);
+}
+
 function tokensApprox(chars) {
   return Math.ceil((chars || 0) / 4);
 }

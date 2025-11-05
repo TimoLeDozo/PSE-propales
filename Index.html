@@ -14,6 +14,12 @@
       --glass-bg: rgba(255, 255, 255, 0.06);
       --glass-border: rgba(255, 255, 255, 0.18);
       --glass-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+      --color-border: rgba(255, 255, 255, 0.16);
+      --color-text: rgba(255, 255, 255, 0.94);
+      --color-text-soft: rgba(255, 255, 255, 0.75);
+      --color-text-muted: rgba(255, 255, 255, 0.55);
+      --focus-ring: 0 0 0 3px rgba(0, 255, 255, 0.25);
+      --transition-base: 0.3s ease;
     }
     * {
       margin: 0;
@@ -30,6 +36,17 @@
       -webkit-font-smoothing: antialiased;
     }
     a { color: inherit; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
     .neural-background {
       position: fixed;
       inset: 0;
@@ -293,6 +310,169 @@
       backdrop-filter: blur(22px);
     }
     .result-card { display: grid; gap: 20px; }
+    .console-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .console-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 8px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(12px);
+    }
+    .console-header p { max-width: 780px; margin: 0 auto; }
+    .result-preview {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      padding: 18px;
+      color: var(--color-text-muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      max-height: 320px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .result-preview strong { color: var(--color-text); }
+    .result-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+    .status-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+    }
+    .panel-subtitle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      margin-bottom: 10px;
+    }
+    .cost-log-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(0, 255, 255, 0.25);
+      background: rgba(0, 255, 255, 0.12);
+      color: #00ffff;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border 0.3s ease;
+    }
+    .cost-log-link:hover { transform: translateY(-2px); box-shadow: 0 18px 40px rgba(0, 255, 255, 0.25); }
+    .cost-log-link.is-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+      border-color: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .files-hint {
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.55);
+      margin-top: 8px;
+    }
+    .field-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .field-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .dictation-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 255, 255, 0.4);
+      background: rgba(0, 255, 255, 0.12);
+      color: #00ffff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    .dictation-button:hover,
+    .dictation-button:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 255, 255, 0.25);
+      outline: none;
+    }
+    .dictation-button.is-active {
+      background: rgba(0, 255, 200, 0.3);
+      color: #041014;
+      border-color: rgba(0, 255, 200, 0.7);
+    }
+    .dictation-button.is-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .dict-status {
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(0, 255, 255, 0.75);
+    }
+    .form-note {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 6px;
+    }
+    .field input[type="file"] {
+      border-style: dashed;
+      border-color: rgba(255, 255, 255, 0.2);
+      padding: 16px;
+      cursor: pointer;
+      background: rgba(6, 6, 6, 0.7);
+    }
+    .field input[type="file"]::-webkit-file-upload-button {
+      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 600;
+      padding: 10px 16px;
+      margin-right: 12px;
+      cursor: pointer;
+    }
+    .field input[type="file"]::file-selector-button {
+      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 600;
+      padding: 10px 16px;
+      margin-right: 12px;
+      cursor: pointer;
+    }
     .result-status {
       padding: 18px 20px;
       border-radius: 20px;
@@ -419,21 +599,8 @@
     #btnGenerate:hover { transform: translateY(-5px); box-shadow: 0 32px 60px rgba(0, 0, 0, 0.6); }
     .microcopy { font-size: 0.75rem; color: rgba(255, 255, 255, 0.45); letter-spacing: 0.1em; text-transform: uppercase; }
 
-    .features, .showcase, .timeline, .contact, footer { position: relative; }
-    .features { padding: 140px 20px; }
-    .features-container { width: min(1100px, 94vw); margin: 0 auto; }
     .section-title { font-size: clamp(2.2rem, 4vw, 3.2rem); text-align: center; margin-bottom: 80px; letter-spacing: 0.02em; }
-    .diagonal-grid { display: flex; flex-direction: column; gap: 48px; }
-    .feature-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; align-items: stretch; }
-    .feature-content { padding: 34px; border-radius: 26px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); backdrop-filter: blur(18px); box-shadow: var(--glass-shadow); transform: translateY(0); transition: transform 0.35s ease, box-shadow 0.35s ease; }
-    .feature-content:hover { transform: translateY(-10px); box-shadow: 0 32px 60px rgba(0, 0, 0, 0.45); }
-    .feature-icon { font-size: 2.8rem; margin-bottom: 20px; }
-    .feature-content h3 { font-size: 1.4rem; margin-bottom: 12px; }
-    .feature-content p { color: rgba(255, 255, 255, 0.65); font-size: 0.98rem; }
-    .feature-visual { border-radius: 26px; background: linear-gradient(135deg, rgba(224,163,255,0.12), rgba(0,255,255,0.12)); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(16px); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); position: relative; overflow: hidden; min-height: 240px; }
-    .feature-visual::after { content: ''; position: absolute; inset: 25px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.14); opacity: 0.5; }
-
-    .showcase { padding: 140px 20px; }
+    .showcase { padding: 140px 20px; position: relative; }
     .hexagon-container { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
     .hexagon { width: 210px; height: 260px; position: relative; }
     .hexagon-inner { position: absolute; inset: 0; padding: 40px 24px; border-radius: 26px; transform: rotate(30deg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(18px); transition: transform 0.4s ease, box-shadow 0.4s ease; box-shadow: var(--glass-shadow); }
@@ -500,6 +667,13 @@
     }
     .modal-progress { width: 100%; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
     .modal-progress-bar { width: 0%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #00ffff, #ff69b4); transition: width 0.2s ease; }
+    .modal-progress-label {
+      text-align: center;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.6);
+    }
     .modal-actions { display: flex; justify-content: flex-end; }
     #btnCloseModal { padding: 12px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.08); color: #fff; font-weight: 500; cursor: pointer; transition: all 0.3s ease; display: none; }
     #btnCloseModal:hover { background: rgba(224,163,255,0.25); }
@@ -515,6 +689,8 @@
     }
     @media (max-width: 620px) {
       .result-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .result-header { flex-direction: column; align-items: stretch; }
+      .cost-log-link { width: 100%; justify-content: center; }
     }
     @media (max-width: 1000px) {
       .nav-links { display: none; }
@@ -561,42 +737,13 @@
   <header class="glass">
     <nav>
       <a href="#home" class="logo">
-        <svg class="logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#e0a3ff" />
-              <stop offset="50%" style="stop-color:#ff69b4" />
-              <stop offset="100%" style="stop-color:#9370db" />
-            </linearGradient>
-          </defs>
-          <circle cx="50" cy="30" r="8" fill="url(#logoGradient)" opacity="0.8">
-            <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite" />
-          </circle>
-          <circle cx="30" cy="60" r="6" fill="url(#logoGradient)" opacity="0.6">
-            <animate attributeName="opacity" values="0.6;1;0.6" dur="2.5s" repeatCount="indefinite" />
-          </circle>
-          <circle cx="70" cy="65" r="7" fill="url(#logoGradient)" opacity="0.7">
-            <animate attributeName="opacity" values="0.7;1;0.7" dur="1.8s" repeatCount="indefinite" />
-          </circle>
-          <line x1="50" y1="30" x2="30" y2="60" stroke="url(#logoGradient)" stroke-width="2" opacity="0.6">
-            <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite" />
-          </line>
-          <line x1="50" y1="30" x2="70" y2="65" stroke="url(#logoGradient)" stroke-width="2" opacity="0.6">
-            <animate attributeName="opacity" values="0.6;1;0.6" dur="2.2s" repeatCount="indefinite" />
-          </line>
-          <line x1="30" y1="60" x2="70" y2="65" stroke="url(#logoGradient)" stroke-width="2" opacity="0.6">
-            <animate attributeName="opacity" values="0.6;1;0.6" dur="2.8s" repeatCount="indefinite" />
-          </line>
-        </svg>
-        NeuralGlass
+        <img id="logoIcamHeader" class="logo-icon" alt="Icam" data-icam-logo data-fallback-logo="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" />
+        <span class="sr-only">Icam Propales</span>
       </a>
       <ul class="nav-links">
         <li><a href="#console" class="active">Console</a></li>
-        <li><a href="#features">Neural</a></li>
         <li><a href="#showcase">Matrix</a></li>
-        <li><a href="#timeline">Evolution</a></li>
-        <li><a href="#contact">Connect</a></li>
-        <li><a href="https://github.com" target="_blank" class="external-link" rel="noopener">GitHub</a></li>
+        <li><a href="https://github.com/TimoLeDozo/PSE-propales" target="_blank" class="external-link" rel="noopener">GitHub</a></li>
       </ul>
       <div class="mobile-menu-toggle" aria-label="Menu">
         <div class="hamburger-line"></div>
@@ -606,11 +753,8 @@
     </nav>
     <div class="mobile-nav">
       <a href="#console" class="active">Console</a>
-      <a href="#features">Neural</a>
       <a href="#showcase">Matrix</a>
-      <a href="#timeline">Evolution</a>
-      <a href="#contact">Connect</a>
-      <a href="https://github.com" target="_blank" class="external-link" rel="noopener">GitHub</a>
+      <a href="https://github.com/TimoLeDozo/PSE-propales" target="_blank" class="external-link" rel="noopener">GitHub</a>
     </div>
   </header>
 
@@ -620,7 +764,7 @@
         <div class="hero-subtitle">Propales instantanées</div>
         <h1>NEURAL PROPAL ENGINE</h1>
         <div class="hero-description">
-          <p>Fusionnez la rigueur Icam avec une interface Apple-like et l'énergie cyberpunk de NeuralGlass. Alimentez DeepSeek, déclenchez la duplication Drive et produisez vos propositions en un éclair, sans compromis sur l'élégance.</p>
+          <p>Alimentez DeepSeek, déclenchez la duplication Drive et produisez vos propositions en un éclair, sans compromis sur l'élégance, avec la rigueur Icam.</p>
         </div>
         <div class="hero-stats">
           <div class="hero-stat">
@@ -642,127 +786,179 @@
         </div>
         <div class="cta-buttons">
           <a href="#console" class="cta-button primary">Initier la console</a>
-          <a href="#features" class="cta-button secondary">Découvrir les flux</a>
+          <a href="#showcase" class="cta-button secondary">Découvrir les flux</a>
         </div>
       </div>
     </section>
 
-    <section class="console-section" id="console">
+        <section class="console-section" id="console">
       <div class="console-wrapper">
         <div class="console-header">
-          <h2>Console Neural · Génération de propale</h2>
-          <p>Renseignez les zones clés. Toutes les informations sont transmises à Apps Script qui orchestre la copie du template Google Docs, le remplissage des zones surlignées et l'appel à DeepSeek.</p>
+          <div class="console-header-top">
+            <img id="logoIcam" class="console-logo" alt="Icam" data-icam-logo data-fallback-logo="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" />
+            <div class="console-header-text">
+              <h2>Console Neural · Génération de propale</h2>
+              <p>Renseignez les zones clés. Toutes les informations sont transmises à Apps Script qui orchestre la copie du template Google Docs, le remplissage des zones surlignées et l'appel à DeepSeek.</p>
+            </div>
+          </div>
+          <p class="microcopy">Les données sont journalisées pour le suivi des coûts DeepSeek.</p>
         </div>
-        <div class="form-panels">
-          <div class="glass-panel">
-            <div class="panel-title">📋 Informations projet</div>
-            <div class="form-grid">
-              <div class="field grid-span-2"><label for="f_titre">Titre *</label><input id="f_titre" type="text" placeholder="Optimisation flux entrepôt" required></div>
-              <div class="field"><label for="f_codeProjet">Code projet</label><input id="f_codeProjet" type="text" placeholder="144-16"></div>
-              <div class="field"><label for="f_dateDebut">Date début</label><input id="f_dateDebut" type="date"></div>
-              <div class="field"><label for="f_versionDoc">Version</label><input id="f_versionDoc" type="text" placeholder="V1"></div>
-              <div class="field"><label for="f_dureeProjet">Durée</label><input id="f_dureeProjet" type="text" placeholder="6 mois"></div>
-              <div class="field"><label for="f_thematique">Thématique</label><input id="f_thematique" type="text" placeholder="Logistique / Supply-chain"></div>
-            </div>
-          </div>
-          <div class="glass-panel">
-            <div class="panel-title">🏢 Entreprise & Contact</div>
-            <div class="form-grid">
-              <div class="field"><label for="f_entrepriseNom">Entreprise *</label><input id="f_entrepriseNom" type="text" placeholder="Velibor SA" required></div>
-              <div class="field"><label for="f_entrepriseAdresse">Adresse</label><input id="f_entrepriseAdresse" type="text" placeholder="49 bis rue Sedaine, 75011 Paris"></div>
-              <div class="field"><label for="f_clientNom">Nom contact</label><input id="f_clientNom" type="text" placeholder="Jean Dupont"></div>
-              <div class="field"><label for="f_clientFonction">Fonction</label><input id="f_clientFonction" type="text" placeholder="Directeur Technique"></div>
-              <div class="field"><label for="f_clientEmail">Email</label><input id="f_clientEmail" type="email" placeholder="jean@exemple.com"></div>
-              <div class="field"><label for="f_clientTelephone">Téléphone</label><input id="f_clientTelephone" type="tel" placeholder="01 23 45 67 89"></div>
-              <div class="field grid-span-2"><label for="f_entrepriseLogo">Logo (URL image https://…)</label><input id="f_entrepriseLogo" type="url" placeholder="https://..." ></div>
-            </div>
-          </div>
-          <div class="glass-panel">
-            <div class="panel-title">🤖 Sections générées par DeepSeek</div>
-            <div class="form-grid">
-              <div class="field grid-span-2"><label for="f_contexte">Contexte</label><textarea id="f_contexte" placeholder="(Généré / Edition manuelle possible)"></textarea></div>
-              <div class="field grid-span-2"><label for="f_demarche">Démarche</label><textarea id="f_demarche" placeholder="(Généré / Edition manuelle possible)"></textarea></div>
-              <div class="field grid-span-2"><label for="f_phases">Phases</label><textarea id="f_phases" placeholder="(Généré / Edition manuelle possible)"></textarea></div>
-              <div class="field grid-span-2"><label for="f_phrase">Phrase de clôture</label><textarea id="f_phrase" rows="2" placeholder="(Généré / Edition manuelle possible)"></textarea></div>
-              <!-- ⚠️ Test hors Apps Script (CI): l'environnement ne fournit pas google.script.run, prévoir une vérification manuelle via l'éditeur Apps Script pour confirmer la recopie multi-paragraphe. -->
-            </div>
-            <div class="actions">
-              <div class="action-buttons">
-                <button type="button" id="btnDictation" class="secondary-button">🎙️ Lancer la dictée</button>
-                <button type="button" id="btnGenerate">✨ Générer la propale</button>
+        <div class="console-layout">
+          <div class="form-panels">
+            <div class="glass-panel">
+              <div class="panel-title">📋 Informations projet</div>
+              <div class="form-grid">
+                <div class="field grid-span-2"><label for="f_titre">Titre *</label><input id="f_titre" type="text" placeholder="Optimisation flux entrepôt" required></div>
+                <div class="field"><label for="f_codeProjet">Code projet</label><input id="f_codeProjet" type="text" placeholder="144-16"></div>
+                <div class="field"><label for="f_dateDebut">Date début</label><input id="f_dateDebut" type="date"></div>
+                <div class="field"><label for="f_versionDoc">Version</label><input id="f_versionDoc" type="text" placeholder="V1"></div>
+                <div class="field"><label for="f_dureeProjet">Durée</label><input id="f_dureeProjet" type="text" placeholder="6 mois"></div>
+                <div class="field"><label for="f_thematique">Thématique</label><input id="f_thematique" type="text" placeholder="Logistique / Supply-chain"></div>
               </div>
-              <p class="microcopy">Uniquement Color-Mapping · Aucun placeholder [[…]]</p>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-title">🏢 Entreprise & Contact</div>
+              <div class="form-grid">
+                <div class="field"><label for="f_entrepriseNom">Entreprise *</label><input id="f_entrepriseNom" type="text" placeholder="Velibor SA" required></div>
+                <div class="field"><label for="f_entrepriseAdresse">Adresse</label><input id="f_entrepriseAdresse" type="text" placeholder="49 bis rue Sedaine, 75011 Paris"></div>
+                <div class="field"><label for="f_clientNom">Nom contact</label><input id="f_clientNom" type="text" placeholder="Jean Dupont"></div>
+                <div class="field"><label for="f_clientFonction">Fonction</label><input id="f_clientFonction" type="text" placeholder="Directeur Technique"></div>
+                <div class="field"><label for="f_clientEmail">Email</label><input id="f_clientEmail" type="email" placeholder="jean@exemple.com"></div>
+                <div class="field"><label for="f_clientTelephone">Téléphone</label><input id="f_clientTelephone" type="tel" placeholder="01 23 45 67 89"></div>
+              </div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-title">🧠 Brief pour DeepSeek</div>
+              <div class="form-grid">
+                <div class="field grid-span-2"><label for="f_ia_probleme">Problème principal *</label><textarea id="f_ia_probleme" placeholder="Retards de livraison, manque de traçabilité…"></textarea></div>
+                <div class="field grid-span-2"><label for="f_ia_solution">Solution proposée</label><textarea id="f_ia_solution" placeholder="5S, outil de tracking, formation équipes…"></textarea></div>
+                <div class="field grid-span-2"><label for="f_ia_objectifs">Objectifs clés</label><textarea id="f_ia_objectifs" placeholder="Réduire de 20% les temps de préparation, etc."></textarea></div>
+              </div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-title">📎 Pièces jointes & outils</div>
+              <div class="form-grid">
+                <div class="field grid-span-2">
+                  <label for="f_attachments">Ajouter des documents (max 5)</label>
+                  <input id="f_attachments" type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.jpeg,.jpg,.png,.mp3,.mp4" data-max="5">
+                  <p class="files-hint" id="filesHint">Aucun fichier sélectionné.</p>
+                </div>
+              </div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-title">🤖 Sections générées par DeepSeek</div>
+              <div class="form-grid">
+                <div class="field grid-span-2">
+                  <div class="field-header">
+                    <label for="f_contexte">Contexte</label>
+                    <div class="field-actions">
+                      <button type="button" class="dictation-button" data-dict-target="f_contexte">🎙️ Dicter</button>
+                      <span class="dict-status" data-dict-status="f_contexte">Prêt.</span>
+                    </div>
+                  </div>
+                  <textarea id="f_contexte" placeholder="(Généré / Édition manuelle possible)"></textarea>
+                </div>
+                <div class="field grid-span-2">
+                  <div class="field-header">
+                    <label for="f_demarche">Démarche</label>
+                    <div class="field-actions">
+                      <button type="button" class="dictation-button" data-dict-target="f_demarche">🎙️ Dicter</button>
+                      <span class="dict-status" data-dict-status="f_demarche">Prêt.</span>
+                    </div>
+                  </div>
+                  <textarea id="f_demarche" placeholder="(Généré / Édition manuelle possible)"></textarea>
+                </div>
+                <div class="field grid-span-2">
+                  <div class="field-header">
+                    <label for="f_phases">Phases</label>
+                    <div class="field-actions">
+                      <button type="button" class="dictation-button" data-dict-target="f_phases">🎙️ Dicter</button>
+                      <span class="dict-status" data-dict-status="f_phases">Prêt.</span>
+                    </div>
+                  </div>
+                  <textarea id="f_phases" placeholder="(Généré / Édition manuelle possible)"></textarea>
+                </div>
+                <div class="field grid-span-2">
+                  <div class="field-header">
+                    <label for="f_phrase">Phrase de clôture</label>
+                    <div class="field-actions">
+                      <button type="button" class="dictation-button" data-dict-target="f_phrase">🎙️ Dicter</button>
+                      <span class="dict-status" data-dict-status="f_phrase">Prêt.</span>
+                    </div>
+                  </div>
+                  <textarea id="f_phrase" rows="2" placeholder="(Généré / Édition manuelle possible)"></textarea>
+                </div>
+                <!-- ⚠️ Test hors Apps Script (CI): l'environnement ne fournit pas google.script.run, prévoir une vérification manuelle via l'éditeur Apps Script pour confirmer la recopie multi-paragraphe. -->
+              </div>
+              <div class="actions">
+                <div class="action-buttons">
+                  <button type="button" id="btnGenerate">✨ Générer la propale</button>
+                </div>
+              </div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-title">🎛️ Paramètres LLM & Journalisation</div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="f_deepseekModel">Modèle DeepSeek</label>
+                  <select id="f_deepseekModel">
+                    <option value="deepseek-reasoner" selected>DeepSeek Reasoner</option>
+                    <option value="deepseek-chat">DeepSeek Chat</option>
+                  </select>
+                </div>
+                <div class="field"><label for="f_llmTemperature">Température</label><input id="f_llmTemperature" type="number" min="0" max="2" step="0.1" placeholder="0.6" value="0.6"></div>
+                <div class="field"><label for="f_llmTopP">Top-p</label><input id="f_llmTopP" type="number" min="0" max="1" step="0.05" placeholder="0.9" value="0.9"></div>
+                <div class="field"><label for="f_llmMaxTokens">Max tokens</label><input id="f_llmMaxTokens" type="number" min="200" max="4000" step="50" placeholder="1800" value="1800"></div>
+                <div class="field"><label for="f_journalHorodatage">Horodatage journal</label><input id="f_journalHorodatage" type="datetime-local"></div>
+                <div class="field">
+                  <label for="f_journalType">Type d’événement</label>
+                  <select id="f_journalType">
+                    <option value="generation" selected>Génération LLM</option>
+                    <option value="dictation">Dictée vocale</option>
+                    <option value="edition">Édition manuelle</option>
+                    <option value="revision">Relecture</option>
+                  </select>
+                </div>
+                <div class="field grid-span-2"><label for="f_journalCours">Journal de cours</label><textarea id="f_journalCours" placeholder="Notes pédagogiques, décisions prises, points ouverts…"></textarea></div>
+                <div class="field grid-span-2"><label for="f_log">Log automatisé</label><textarea id="f_log" placeholder="Les événements techniques et dictée seront consignés ici." readonly></textarea></div>
+              </div>
             </div>
           </div>
+          <aside class="results-column">
+            <div class="glass-panel result-card">
+              <div class="result-header">
+                <div class="status-stack">
+                  <div class="panel-title">📊 Statut</div>
+                  <div class="result-status is-idle" id="resultStatus"><span>En attente d’une génération.</span></div>
+                </div>
+                <a id="costLogLink" class="cost-log-link is-disabled" href="#" target="_blank" rel="noopener" aria-disabled="true">📊 Journal des coûts</a>
+              </div>
+              <div class="status-stack">
+                <div class="panel-subtitle">📝 Prévisualisation</div>
+                <pre id="resultPreview" class="result-preview">Prêt à compiler les informations du brief.</pre>
+              </div>
+              <div class="status-stack">
+                <div class="panel-subtitle">🗂️ Journal</div>
+                <ul id="resultHistory" class="result-history">
+                  <li class="result-item is-idle" data-placeholder="true"><span>Historique vide pour le moment.</span><time datetime=""></time></li>
+                </ul>
+              </div>
+            </div>
+            <div class="tips-panel">
+              <h3>Astuce workflow</h3>
+              <ul>
+                <li><span>🧾</span><span>Précisez le problème principal pour guider DeepSeek.</span></li>
+                <li><span>📎</span><span>Ajoutez des documents clés pour la mise en contexte.</span></li>
+                <li><span>📊</span><span>Consultez le journal Google Sheets pour suivre les coûts.</span></li>
+              </ul>
+            </div>
+          </aside>
         </div>
       </div>
     </section>
 
-    <section class="console-section">
-      <div class="console-wrapper">
-        <div class="form-panels">
-          <div class="glass-panel">
-            <div class="panel-title">🎛️ Paramètres LLM & Journalisation</div>
-            <div class="form-grid">
-              <div class="field">
-                <label for="f_deepseekModel">Modèle DeepSeek</label>
-                <select id="f_deepseekModel">
-                  <option value="deepseek-reasoner" selected>DeepSeek Reasoner</option>
-                  <option value="deepseek-chat">DeepSeek Chat</option>
-                </select>
-              </div>
-              <div class="field"><label for="f_llmTemperature">Température</label><input id="f_llmTemperature" type="number" min="0" max="2" step="0.1" placeholder="0.6" value="0.6"></div>
-              <div class="field"><label for="f_llmTopP">Top-p</label><input id="f_llmTopP" type="number" min="0" max="1" step="0.05" placeholder="0.9" value="0.9"></div>
-              <div class="field"><label for="f_llmMaxTokens">Max tokens</label><input id="f_llmMaxTokens" type="number" min="200" max="4000" step="50" placeholder="1800" value="1800"></div>
-              <div class="field"><label for="f_journalHorodatage">Horodatage journal</label><input id="f_journalHorodatage" type="datetime-local"></div>
-              <div class="field">
-                <label for="f_journalType">Type d’événement</label>
-                <select id="f_journalType">
-                  <option value="generation" selected>Génération LLM</option>
-                  <option value="dictation">Dictée vocale</option>
-                  <option value="edition">Édition manuelle</option>
-                  <option value="revision">Relecture</option>
-                </select>
-              </div>
-              <div class="field grid-span-2"><label for="f_journalCours">Journal de cours</label><textarea id="f_journalCours" placeholder="Notes pédagogiques, décisions prises, points ouverts…"></textarea></div>
-              <div class="field grid-span-2"><label for="f_log">Log automatisé</label><textarea id="f_log" placeholder="Les événements techniques et dictée seront consignés ici." readonly></textarea></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <section class="features" id="features">
-      <div class="features-container">
-        <h2 class="section-title">Quantum Capabilities</h2>
-        <div class="diagonal-grid">
-          <div class="feature-row">
-            <div class="feature-content">
-              <div class="feature-icon">🧠</div>
-              <h3>Neural Processing</h3>
-              <p>Le moteur Apps Script capte vos données, mappe automatiquement les zones colorées du template Google Docs et garantit une cohérence parfaite entre client, entreprise et contacts.</p>
-            </div>
-            <div class="feature-visual"></div>
-          </div>
-          <div class="feature-row">
-            <div class="feature-content">
-              <div class="feature-icon">⚡</div>
-              <h3>Quantum Speed</h3>
-              <p>Le backend orchestre la copie du modèle, l'appel DeepSeek et l'enregistrement dans le Drive cible. Temps de réponse optimisé et journalisation automatique des coûts.</p>
-            </div>
-            <div class="feature-visual"></div>
-          </div>
-          <div class="feature-row">
-            <div class="feature-content">
-              <div class="feature-icon">🌐</div>
-              <h3>Dimensional Sync</h3>
-              <p>Gestion intelligente des doublons, nettoyage du surlignage et intégration transparente du logo entreprise grâce au cache base64 embarqué côté serveur.</p>
-            </div>
-            <div class="feature-visual"></div>
-          </div>
-        </div>
-      </div>
-    </section>
+    
 
     <section class="showcase" id="showcase">
       <h2 class="section-title">Matrix Protocols</h2>
@@ -776,65 +972,17 @@
       </div>
     </section>
 
-    <section class="timeline" id="timeline">
-      <h2 class="section-title">Evolution Timeline</h2>
-      <div class="timeline-container">
-        <div class="timeline-line"></div>
-        <div class="timeline-item">
-          <div class="timeline-content"><div class="timeline-year">2024</div><h4>Genesis Protocol</h4><p>Lancement du template NeuralGlass fusionné avec le générateur de propales Icam.</p></div>
-          <div class="timeline-dot"></div>
-        </div>
-        <div class="timeline-item">
-          <div class="timeline-content"><div class="timeline-year">2025</div><h4>Matrix Integration</h4><p>Ajout du backend DeepSeek & Google Drive pour une génération en un clic.</p></div>
-          <div class="timeline-dot"></div>
-        </div>
-        <div class="timeline-item">
-          <div class="timeline-content"><div class="timeline-year">2026</div><h4>Quantum Leap</h4><p>Console Apple-like unifiée, expérience responsive et animée.</p></div>
-          <div class="timeline-dot"></div>
-        </div>
-        <div class="timeline-item">
-          <div class="timeline-content"><div class="timeline-year">2027</div><h4>Neural Singularity</h4><p>Standardisation des propales au sein de l'écosystème PSE avec automatisations IA.</p></div>
-          <div class="timeline-dot"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="contact" id="contact">
-      <div class="contact-container">
-        <div class="contact-info">
-          <h3>Establish Connection</h3>
-          <p>Besoin d'itérations supplémentaires, d'un nouveau modèle ou d'une extension CRM ? Contactez l'équipe NeuralGlass.</p>
-          <p>Nous vous accompagnons pour enrichir le backend Apps Script, suivre les coûts DeepSeek et perfectionner vos templates Docs.</p>
-          <div class="social-links">
-            <a href="#">📡</a>
-            <a href="#">🌐</a>
-            <a href="#">💬</a>
-            <a href="#">📨</a>
-          </div>
-        </div>
-        <form class="contact-form" onsubmit="return false;">
-          <div class="form-group"><label for="contact-name">Neural ID</label><input id="contact-name" type="text" placeholder="Nom"></div>
-          <div class="form-group"><label for="contact-email">Quantum Channel</label><input id="contact-email" type="email" placeholder="Email"></div>
-          <div class="form-group"><label for="contact-subject">Mission Objective</label><input id="contact-subject" type="text" placeholder="Sujet"></div>
-          <div class="form-group"><label for="contact-message">Transmission Data</label><textarea id="contact-message" rows="4" placeholder="Votre message..."></textarea></div>
-          <button type="submit" class="submit-btn">Transmit to Matrix</button>
-        </form>
-      </div>
-    </section>
   </main>
 
   <footer>
     <div class="footer-content">
       <div class="footer-links">
         <a href="#console">Console</a>
-        <a href="#features">Neural Networks</a>
         <a href="#showcase">Matrix Protocols</a>
-        <a href="#timeline">Evolution</a>
-        <a href="#contact">Connect</a>
-        <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/TimoLeDozo/PSE-propales" target="_blank" rel="noopener">GitHub</a>
       </div>
-      <div>&copy; 2025 NeuralGlass Interface · All quantum rights reserved.</div>
-      <div>Design TemplateMo · Augmented by NeuralGlass & Icam Apps Script</div>
+      <div>&copy; 2025 MSI Propales · Interface Apps Script</div>
+      <div>Cagin Timothé - Toni Veloso</div>
     </div>
   </footer>
 
@@ -844,7 +992,8 @@
         <h3 id="modalTitle">Génération en cours…</h3>
         <p id="modalStatus">Préparation</p>
       </div>
-      <div class="modal-progress"><div id="progressBar" class="modal-progress-bar"></div></div>
+      <div class="modal-progress"><div id="progressBar" class="modal-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div>
+      <p id="modalProgressValue" class="modal-progress-label">0 %</p>
       <div id="modalResult" class="modal-result"></div>
       <div class="modal-actions"><button id="btnCloseModal">Fermer</button></div>
     </div>
@@ -967,7 +1116,7 @@
         }
       });
     }, observerOptions);
-    document.querySelectorAll('.timeline-content, .hexagon-inner, .feature-content').forEach(el => {
+    document.querySelectorAll('.timeline-content, .hexagon-inner').forEach(el => {
       el.style.opacity = '0';
       el.style.transform = 'translateY(40px)';
       el.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
@@ -994,6 +1143,97 @@
     const $ = (id) => document.getElementById(id);
     const resultStatusEl = $('resultStatus');
     const resultHistoryEl = $('resultHistory');
+    const resultPreviewEl = $('resultPreview');
+    const costLogLinkEl = $('costLogLink');
+    const filesHintEl = $('filesHint');
+    const icamLogoEls = Array.from(document.querySelectorAll('[data-icam-logo]'));
+    let copyProgressTimer = null;
+    let copyProgressValue = 0;
+    function setModalProgress(pct, message = '', appendPercent = false) {
+      copyProgressValue = Math.max(0, Math.min(100, Math.round(pct)));
+      const bar = $('progressBar');
+      if (bar) {
+        bar.style.width = copyProgressValue + '%';
+        bar.setAttribute('aria-valuenow', String(copyProgressValue));
+      }
+      const label = $('modalProgressValue');
+      if (label) label.textContent = copyProgressValue + ' %';
+      const status = $('modalStatus');
+      if (status && message) {
+        status.textContent = appendPercent ? `${message} ${copyProgressValue}%` : message;
+      } else if (status && appendPercent) {
+        status.textContent = copyProgressValue + '%';
+      }
+    }
+    function clearCopyProgressTimer() {
+      if (copyProgressTimer) {
+        clearInterval(copyProgressTimer);
+        copyProgressTimer = null;
+      }
+    }
+    function startCopyProgressLoop(start = 55, peak = 92) {
+      clearCopyProgressTimer();
+      let current = Math.max(0, Math.min(100, Math.round(start)));
+      const ceiling = Math.max(current, Math.min(99, Math.round(peak)));
+      setModalProgress(current, 'Copie du modèle…', true);
+      copyProgressTimer = setInterval(() => {
+        if (current >= ceiling) {
+          clearCopyProgressTimer();
+          return;
+        }
+        current = Math.min(ceiling, current + Math.max(1, Math.random() * 4));
+        setModalProgress(current, 'Copie du modèle…', true);
+      }, 650);
+    }
+    function getRunner() {
+      return (typeof google !== 'undefined' && google.script && google.script.run)
+        ? google.script.run
+        : null;
+    }
+    function updateDictStatus(targetId, message) {
+      if (!targetId) return;
+      const statusEl = document.querySelector(`[data-dict-status="${targetId}"]`);
+      if (statusEl) statusEl.textContent = message;
+    }
+    function resetAllDictStatus(message = 'Prêt.') {
+      document.querySelectorAll('.dict-status').forEach((el) => {
+        el.textContent = message;
+      });
+    }
+    function updateCostLogLink(url) {
+      if (!costLogLinkEl || !url) return;
+      costLogLinkEl.href = url;
+      costLogLinkEl.classList.remove('is-disabled');
+      costLogLinkEl.setAttribute('aria-disabled', 'false');
+    }
+    function updatePreview(text) {
+      if (!resultPreviewEl) return;
+      resultPreviewEl.textContent = text && text.trim()
+        ? text
+        : 'Prêt à compiler les informations du brief.';
+    }
+    function buildFormPreview(data) {
+      if (!data) return 'Brief non renseigné.';
+      const lines = [
+        `Titre : ${data.titre || '—'}`,
+        `Entreprise : ${data.entrepriseNom || '—'}`,
+        `Problème : ${data.ia_probleme || '—'}`,
+        `Solution : ${data.ia_solution || '—'}`,
+        `Objectifs : ${data.ia_objectifs || '—'}`,
+        `Durée : ${data.dureeProjet || '—'}`
+      ];
+      return lines.join('\n');
+    }
+    function buildAiPreview(sections, docUrl) {
+      if (!sections) return 'Aucune section générée pour le moment.';
+      const parts = [];
+      if (sections.contexte) parts.push(`Contexte\n${sections.contexte}`);
+      if (sections.demarche) parts.push(`Démarche\n${sections.demarche}`);
+      if (sections.phases) parts.push(`Phases\n${sections.phases}`);
+      if (sections.phrase) parts.push(`Phrase de clôture\n${sections.phrase}`);
+      if (docUrl) parts.push(`Document : ${docUrl}`);
+      return parts.length ? parts.join('\n\n') : 'Sections générées disponibles dans le document.';
+    }
     function appendLog(message) {
       const logEl = $('f_log');
       if (!logEl) return;
@@ -1041,20 +1281,22 @@
         }
       }
     }
-    function showModal(title, status, pct = 0) {
+    function showModal(title, status, pct = 0, appendPercent = false) {
       $('modalTitle').textContent = title;
-      $('modalStatus').textContent = status;
-      $('progressBar').style.width = pct + '%';
+      setModalProgress(pct, status, appendPercent);
       $('modalResult').innerHTML = '';
       $('btnCloseModal').style.display = 'none';
       $('modal').classList.add('active');
     }
-    function hideModal() { $('modal').classList.remove('active'); }
+    function hideModal() {
+      clearCopyProgressTimer();
+      $('modal').classList.remove('active');
+    }
     const decimalFields = new Set(['llmTemperature', 'llmTopP']);
     const integerFields = new Set(['llmMaxTokens']);
     const rawFields = new Set(['log']);
     function collectForm() {
-      const fields = ['titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
+      const fields = ['titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','ia_probleme','ia_solution','ia_objectifs','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
       const out = {};
       fields.forEach(f => {
         const el = $('f_' + f);
@@ -1104,17 +1346,29 @@
     let dictationActive = false;
     let dictationStopping = false;
     let dictationTarget = null;
+    let dictationButton = null;
+    let pendingDictation = null;
 
     function initSpeechDictation() {
-      const btn = $('btnDictation');
-      if (!btn) return;
+      const dictationButtons = Array.from(document.querySelectorAll('[data-dict-target]'));
+      if (!dictationButtons.length) return;
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        btn.disabled = true;
-        btn.textContent = '🎙️ Dictée non supportée';
-        appendLog("Dictée vocale non supportée par ce navigateur.");
+        dictationButtons.forEach((btn) => {
+          btn.disabled = true;
+          btn.classList.add('is-disabled');
+        });
+        appendLog('Dictée vocale non supportée par ce navigateur.');
+        resetAllDictStatus('Dictée non supportée.');
         return;
       }
+
+      dictationButtons.forEach((btn) => {
+        if (!btn.dataset.originalLabel) {
+          btn.dataset.originalLabel = btn.textContent.trim();
+        }
+      });
 
       speechRecognition = new SpeechRecognition();
       speechRecognition.lang = 'fr-FR';
@@ -1126,24 +1380,30 @@
         let finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
-          if (result.isFinal && result[0]) {
-            finalTranscript += result[0].transcript;
+          if (!result || !result[0]) continue;
+          const transcript = (result[0].transcript || '').trim();
+          if (!transcript) continue;
+          if (result.isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            updateDictStatus(dictationTarget.id, `… ${transcript}`);
           }
         }
+        finalTranscript = finalTranscript.trim();
         if (!finalTranscript) return;
-        const insert = finalTranscript.trim();
-        if (!insert) return;
         const current = dictationTarget.value || '';
-        const separator = current && !/[\s\n]$/.test(current) ? ' ' : '';
-        dictationTarget.value = current + separator + insert;
+        const separator = current && !(/[\s\n]$/.test(current)) ? ' ' : '';
+        dictationTarget.value = current + separator + finalTranscript;
         dictationTarget.dispatchEvent(new Event('input', { bubbles: true }));
-        appendLog(`Dictée → ${insert}`);
+        updateDictStatus(dictationTarget.id, 'OK ✓');
+        appendLog(`Dictée → ${finalTranscript}`);
       };
 
       speechRecognition.onerror = (event) => {
         appendLog(`Erreur dictée: ${event.error || 'inconnue'}`);
         dictationStopping = true;
         dictationActive = false;
+        if (dictationTarget) updateDictStatus(dictationTarget.id, `Erreur : ${event.error || 'inconnue'}`);
         try {
           speechRecognition.stop();
         } catch (_) {}
@@ -1152,105 +1412,253 @@
       speechRecognition.onstart = () => {
         dictationActive = true;
         dictationStopping = false;
-        btn.classList.add('active');
-        btn.textContent = '🛑 Arrêter la dictée';
+        if (dictationButton) {
+          dictationButton.classList.add('is-active');
+          dictationButton.textContent = '🛑 Arrêter';
+        }
+        if (dictationTarget) updateDictStatus(dictationTarget.id, 'Écoute en cours…');
         appendLog('Dictée vocale démarrée.');
       };
 
       speechRecognition.onend = () => {
-        btn.classList.remove('active');
-        btn.textContent = '🎙️ Lancer la dictée';
-        if (!dictationStopping && dictationActive) {
-          dictationActive = false;
+        const previousButton = dictationButton;
+        const previousTarget = dictationTarget ? dictationTarget.id : null;
+        if (previousButton) {
+          previousButton.classList.remove('is-active');
+          previousButton.textContent = previousButton.dataset.originalLabel || '🎙️ Dicter';
+        }
+
+        const nextRequest = pendingDictation;
+        pendingDictation = null;
+        dictationActive = false;
+        const wasStopping = dictationStopping;
+        dictationStopping = false;
+
+        if (nextRequest) {
+          dictationTarget = nextRequest.target;
+          dictationButton = nextRequest.button;
+          requestAnimationFrame(() => {
+            try {
+              speechRecognition.start();
+            } catch (err) {
+              appendLog(`Impossible de démarrer la dictée: ${err.message || err}`);
+              updateDictStatus(dictationTarget.id, 'Démarrage impossible.');
+            }
+          });
+          return;
+        }
+
+        if (!wasStopping && previousTarget) {
+          updateDictStatus(previousTarget, 'Prêt.');
           appendLog('Dictée interrompue.');
         }
-        dictationStopping = false;
+        dictationTarget = null;
+        dictationButton = null;
       };
 
-      btn.addEventListener('click', () => {
-        if (!speechRecognition) return;
-        if (!dictationActive) {
-          if (!dictationTarget) dictationTarget = $('f_contexte');
-          dictationStopping = false;
-          try {
-            speechRecognition.start();
-          } catch (err) {
-            appendLog(`Impossible de démarrer la dictée: ${err.message || err}`);
-          }
-        } else {
-          dictationStopping = true;
-          dictationActive = false;
-          try {
-            speechRecognition.stop();
-          } catch (_) {}
-          appendLog('Dictée arrêtée par l’utilisateur.');
+      function requestDictation(target, button) {
+        dictationTarget = target;
+        dictationButton = button;
+        try {
+          speechRecognition.start();
+        } catch (err) {
+          appendLog(`Impossible de démarrer la dictée: ${err.message || err}`);
+          updateDictStatus(dictationTarget.id, 'Démarrage impossible.');
         }
+      }
+
+      function stopDictation() {
+        if (!speechRecognition) return;
+        dictationStopping = true;
+        if (dictationTarget) updateDictStatus(dictationTarget.id, 'Arrêt en cours…');
+        try {
+          speechRecognition.stop();
+        } catch (_) {}
+      }
+
+      dictationButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          if (!speechRecognition) return;
+          const target = document.getElementById(button.dataset.dictTarget);
+          if (!target) return;
+
+          if (!dictationActive) {
+            requestDictation(target, button);
+            return;
+          }
+
+          if (dictationButton === button) {
+            stopDictation();
+            appendLog('Dictée arrêtée par l’utilisateur.');
+            return;
+          }
+
+          pendingDictation = { target, button };
+          stopDictation();
+        });
       });
 
+      resetAllDictStatus();
       appendLog('Dictée vocale prête.');
     }
 
     document.addEventListener('focusin', (event) => {
       const target = event.target;
-      if (!target) return;
+      if (!target || dictationActive) return;
       if (target.matches('textarea, input[type="text"], input[type="search"], input[type="email"], input[type="tel"], input[type="url"], input[type="number"]')) {
         dictationTarget = target;
       }
     });
 
     appendLog('Console initialisée.');
+    updatePreview('Prêt à compiler les informations du brief.');
+    updateResultPanel({ state: 'idle', message: 'Prêt pour une nouvelle génération.', recordHistory: false });
     dictationTarget = $('f_contexte') || null;
     initSpeechDictation();
+
+    const attachmentsInput = $('f_attachments');
+    if (attachmentsInput) {
+      const maxFiles = parseInt(attachmentsInput.getAttribute('data-max') || '5', 10);
+      attachmentsInput.addEventListener('change', () => {
+        const files = Array.from(attachmentsInput.files || []);
+        if (files.length > maxFiles) {
+          alert(`Jusqu’à ${maxFiles} fichiers.`);
+          attachmentsInput.value = '';
+          if (filesHintEl) filesHintEl.textContent = 'Aucun fichier sélectionné.';
+          appendLog('Sélection trop importante de pièces jointes.');
+          return;
+        }
+        if (filesHintEl) {
+          filesHintEl.textContent = files.length
+            ? `${files.length} fichier(s) sélectionné(s).`
+            : 'Aucun fichier sélectionné.';
+        }
+        appendLog(files.length
+          ? `Pièces jointes sélectionnées: ${files.length}`
+          : 'Aucune pièce jointe sélectionnée.');
+      });
+    }
+
+    const initRunner = getRunner();
+    if (icamLogoEls.length) {
+      const applyLogo = (url) => {
+        if (!url) return;
+        icamLogoEls.forEach((el) => {
+          el.src = url;
+        });
+      };
+      if (initRunner) {
+        initRunner.withSuccessHandler(applyLogo).getIcamLogoDataUrl();
+      } else {
+        icamLogoEls.forEach((el) => {
+          const fallback = el.getAttribute('data-fallback-logo');
+          if (fallback) el.src = fallback;
+        });
+      }
+    }
+    if (costLogLinkEl && initRunner) {
+      initRunner.withSuccessHandler(updateCostLogLink).getCostLogUrl_public();
+    }
 
     const btnGenerate = $('btnGenerate');
     if (btnGenerate) {
       btnGenerate.addEventListener('click', () => {
         const fd = collectForm();
-        if (!fd.titre || !fd.entrepriseNom) {
-          alert('⚠️ Le titre et le nom de l\'entreprise sont obligatoires.');
+        const missing = [];
+        if (!fd.titre) missing.push('Le titre est obligatoire');
+        if (!fd.entrepriseNom) missing.push('Le nom de l’entreprise est obligatoire');
+        if (!fd.ia_probleme) missing.push('Le problème principal est obligatoire');
+        if (missing.length) {
+          alert('⚠️ Merci de corriger :\n\n' + missing.join('\n'));
           return;
         }
-        appendLog('Déclenchement de la génération DeepSeek.');
-        showModal('🚀 Lancement', 'Copie du modèle…', 18);
-        updateResultPanel({ state: 'progress', message: 'Génération en cours…', recordHistory: false });
-        const runner = (typeof google !== 'undefined' && google.script && google.script.run) ? google.script.run : null;
-        if (!runner) {
+
+        updatePreview(buildFormPreview(fd));
+        appendLog('Préparation de la génération DeepSeek.');
+        showModal('🚀 Lancement', 'Estimation du coût…', 18);
+        updateResultPanel({ state: 'progress', message: 'Estimation du coût…', recordHistory: true });
+
+        const runnerCheck = getRunner();
+        if (!runnerCheck) {
           appendLog('google.script.run indisponible (mode hors Apps Script).');
           setTimeout(() => {
-            $('modalStatus').textContent = 'Prévisualisation locale (Apps Script requis).';
-            $('progressBar').style.width = '100%';
+            setModalProgress(100, 'Prévisualisation locale (Apps Script requis).');
             $('modalResult').innerHTML = '<p>google.script.run non disponible hors Apps Script.</p>';
             $('btnCloseModal').style.display = 'inline-flex';
             updateResultPanel({ state: 'error', message: 'Prévisualisation locale uniquement (Apps Script requis).', recordHistory: true });
           }, 600);
           return;
         }
-        appendLog('Transmission des données à Apps Script.');
-        runner
+
+        const launchGeneration = () => {
+          appendLog('Transmission des données à Apps Script.');
+          startCopyProgressLoop();
+          updateResultPanel({ state: 'progress', message: 'Copie du modèle en cours…', recordHistory: true });
+          const runnerGenerate = getRunner();
+          runnerGenerate
+            .withSuccessHandler(res => {
+              clearCopyProgressTimer();
+              if (res && res.success) {
+                showModal('🎉 Succès', 'Document créé', 100);
+                const docUrl = res.url || '';
+                $('modalResult').innerHTML = docUrl ? `<a href="${docUrl}" target="_blank" rel="noopener">📄 Ouvrir le document</a>` : '';
+                const costMessage = (res.cost && typeof res.cost.total === 'number')
+                  ? `Document généré — coût $${res.cost.total.toFixed(4)}`
+                  : 'Document généré';
+                updateResultPanel({ state: 'success', message: costMessage, link: docUrl, linkLabel: 'Ouvrir', recordHistory: true });
+                if (res.aiSections) {
+                  updatePreview(buildAiPreview(res.aiSections, docUrl));
+                } else if (res.llmContent) {
+                  updatePreview(res.llmContent);
+                }
+                if (res.costLogUrl) updateCostLogLink(res.costLogUrl);
+                appendLog(docUrl ? `Succès génération · Doc: ${docUrl}` : 'Succès génération (URL non transmise).');
+                if (res.cost && typeof res.cost.total === 'number') {
+                  appendLog(`Coût DeepSeek facturé: $${res.cost.total.toFixed(4)}`);
+                }
+              } else {
+                const errorMessage = (res && res.error) || 'Erreur inconnue';
+                showModal('❌ Erreur', errorMessage, copyProgressValue || 0);
+                updateResultPanel({ state: 'error', message: errorMessage, recordHistory: true });
+                appendLog(`Erreur génération: ${errorMessage}`);
+              }
+              $('btnCloseModal').style.display = 'inline-flex';
+            })
+            .withFailureHandler(err => {
+              clearCopyProgressTimer();
+              const errorText = err && err.message ? err.message : String(err);
+              showModal('❌ Erreur', errorText, copyProgressValue || 0);
+              updateResultPanel({ state: 'error', message: errorText, recordHistory: true });
+              appendLog(`Erreur technique: ${errorText}`);
+              $('btnCloseModal').style.display = 'inline-flex';
+            })
+            .generateFullProposal(fd);
+        };
+
+        getRunner()
           .withSuccessHandler(res => {
-            if (res && res.success) {
-              showModal('🎉 Succès', 'Document créé', 100);
-              const docUrl = res && res.url ? res.url : '';
-              $('modalResult').innerHTML = docUrl ? `<a href="${docUrl}" target="_blank" rel="noopener">📄 Ouvrir le document</a>` : '';
-              const successMessage = docUrl ? 'Document généré' : 'Document généré (URL non transmise)';
-              updateResultPanel({ state: 'success', message: successMessage, link: docUrl, linkLabel: 'Ouvrir', recordHistory: true });
-              appendLog(docUrl ? `Succès génération · Doc: ${docUrl}` : 'Succès génération (URL non transmise).');
-            } else {
-              showModal('❌ Erreur', (res && res.error) || 'Erreur inconnue', 0);
-              const errorMessage = (res && res.error) || 'Erreur inconnue';
-              updateResultPanel({ state: 'error', message: errorMessage, recordHistory: true });
-              appendLog(`Erreur génération: ${errorMessage}`);
+            if (res && res.est) {
+              const est = res.est;
+              const total = typeof est.total === 'number' ? est.total.toFixed(4) : '—';
+              const inTok = est.input && typeof est.input.tokens === 'number' ? est.input.tokens : '—';
+              const outTok = est.output && typeof est.output.tokens === 'number' ? est.output.tokens : '—';
+              const model = est.model || 'DeepSeek';
+              const summary = `Estimation coût: $${total} · IN ${inTok} tok · OUT ${outTok} tok · Modèle: ${model}`;
+              setModalProgress(38, summary);
+              updateResultPanel({ state: 'progress', message: summary, recordHistory: true });
+              appendLog(summary);
+              if (res.sheetUrl) updateCostLogLink(res.sheetUrl);
             }
-            $('btnCloseModal').style.display = 'inline-flex';
+            launchGeneration();
           })
           .withFailureHandler(err => {
-            showModal('❌ Erreur', err && err.message ? err.message : String(err), 0);
-            const errorText = err && err.message ? err.message : String(err);
-            updateResultPanel({ state: 'error', message: errorText, recordHistory: true });
-            appendLog(`Erreur technique: ${errorText}`);
-            $('btnCloseModal').style.display = 'inline-flex';
+            const msg = err && err.message ? err.message : 'Estimation indisponible.';
+            appendLog(`Estimation indisponible: ${msg}`);
+            setModalProgress(32, 'Estimation indisponible, lancement direct…');
+            updateResultPanel({ state: 'progress', message: 'Estimation indisponible, lancement direct…', recordHistory: true });
+            launchGeneration();
           })
-          .generateFromForm(fd);
+          .estimateAndLogCost_public(fd);
       });
     }
     const closeBtn = $('btnCloseModal');
