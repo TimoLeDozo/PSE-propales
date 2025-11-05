@@ -267,6 +267,16 @@
       display: grid;
       gap: 40px;
     }
+    .console-layout {
+      display: grid;
+      gap: 32px;
+      align-items: start;
+    }
+    .results-column {
+      display: grid;
+      gap: 28px;
+      align-content: start;
+    }
     .console-header { text-align: center; }
     .console-header h2 { font-size: clamp(2.2rem, 4vw, 3.1rem); margin-bottom: 16px; letter-spacing: -0.01em; }
     .console-header p { color: rgba(255, 255, 255, 0.7); max-width: 680px; margin: 0 auto; }
@@ -282,6 +292,79 @@
       box-shadow: var(--glass-shadow);
       backdrop-filter: blur(22px);
     }
+    .result-card { display: grid; gap: 20px; }
+    .result-status {
+      padding: 18px 20px;
+      border-radius: 20px;
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
+      font-weight: 500;
+      line-height: 1.5;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      transition: transform var(--transition-base), border-color var(--transition-base), background var(--transition-base);
+    }
+    .result-status span { flex: 1 1 auto; }
+    .result-status a {
+      color: #050505;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 14px;
+      background: var(--gradient-primary);
+      text-decoration: none;
+      box-shadow: 0 20px 35px rgba(0,0,0,0.45);
+      transition: transform var(--transition-base), box-shadow var(--transition-base);
+    }
+    .result-status a:hover,
+    .result-status a:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 26px 45px rgba(0,0,0,0.55);
+      outline: none;
+      box-shadow: 0 26px 45px rgba(0,0,0,0.55), var(--focus-ring);
+    }
+    .result-status.is-idle { border-color: var(--color-border); background: rgba(255,255,255,0.04); }
+    .result-status.is-progress { border-color: rgba(0, 247, 255, 0.45); background: rgba(0, 247, 255, 0.08); }
+    .result-status.is-success { border-color: rgba(0, 255, 153, 0.45); background: rgba(0, 255, 153, 0.08); }
+    .result-status.is-error { border-color: rgba(255, 105, 180, 0.5); background: rgba(255, 105, 180, 0.1); }
+    .result-history { list-style: none; display: grid; gap: 14px; }
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      padding: 14px 18px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--color-text-soft);
+      font-size: 0.9rem;
+      transition: transform var(--transition-base), border-color var(--transition-base), background var(--transition-base);
+    }
+    .result-item time { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--color-text-muted); text-transform: uppercase; }
+    .result-item:hover { transform: translateY(-3px); border-color: rgba(0, 247, 255, 0.3); }
+    .result-item.is-progress { border-color: rgba(0, 247, 255, 0.3); }
+    .result-item.is-success { border-color: rgba(0, 255, 153, 0.35); }
+    .result-item.is-error { border-color: rgba(255, 105, 180, 0.35); }
+    .tips-panel {
+      padding: 28px;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      display: grid;
+      gap: 16px;
+      transition: transform var(--transition-base), border-color var(--transition-base);
+    }
+    .tips-panel:hover { transform: translateY(-6px); border-color: rgba(0, 247, 255, 0.25); }
+    .tips-panel h3 { font-size: 1.1rem; color: var(--color-text); }
+    .tips-panel ul { list-style: none; display: grid; gap: 10px; color: var(--color-text-muted); font-size: 0.9rem; }
+    .tips-panel li { display: flex; align-items: center; gap: 10px; }
+    .tips-panel li span { font-size: 1.1rem; }
     .panel-title { font-size: 1.3rem; font-weight: 600; margin-bottom: 24px; letter-spacing: 0.04em; display: flex; align-items: center; gap: 10px; color: #fff; }
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px 22px; }
     .field label { display: block; margin-bottom: 8px; font-size: 0.78rem; letter-spacing: 0.14em; color: rgba(255, 255, 255, 0.65); text-transform: uppercase; }
@@ -422,6 +505,17 @@
     #btnCloseModal:hover { background: rgba(224,163,255,0.25); }
     .modal-result a { display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border-radius: 16px; background: linear-gradient(135deg, #6a5bff, #00ffff); color: #050505; font-weight: 600; text-decoration: none; margin-top: 10px; }
 
+    @media (min-width: 1100px) {
+      .console-layout { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+      .results-column { position: sticky; top: 140px; }
+    }
+    @media (max-width: 900px) {
+      .console-layout { gap: 28px; }
+      .results-column { order: 2; }
+    }
+    @media (max-width: 620px) {
+      .result-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
     @media (max-width: 1000px) {
       .nav-links { display: none; }
       .mobile-menu-toggle { display: flex; }
@@ -898,6 +992,8 @@
     }
 
     const $ = (id) => document.getElementById(id);
+    const resultStatusEl = $('resultStatus');
+    const resultHistoryEl = $('resultHistory');
     function appendLog(message) {
       const logEl = $('f_log');
       if (!logEl) return;
@@ -906,6 +1002,44 @@
       const line = `[${timeLabel}] ${message}`;
       logEl.value = logEl.value ? `${logEl.value}\n${line}` : line;
       logEl.scrollTop = logEl.scrollHeight;
+    }
+    function updateResultPanel({ state = 'idle', message = '', link = '', linkLabel = 'Ouvrir', recordHistory = true } = {}) {
+      if (resultStatusEl && message) {
+        resultStatusEl.className = `result-status is-${state}`;
+        resultStatusEl.innerHTML = '';
+        const textSpan = document.createElement('span');
+        textSpan.textContent = message;
+        resultStatusEl.appendChild(textSpan);
+        if (link) {
+          const anchor = document.createElement('a');
+          anchor.href = link;
+          anchor.target = '_blank';
+          anchor.rel = 'noopener';
+          anchor.textContent = linkLabel || 'Ouvrir';
+          resultStatusEl.appendChild(anchor);
+        }
+      }
+      if (recordHistory && resultHistoryEl && message) {
+        const placeholder = resultHistoryEl.querySelector('[data-placeholder="true"]');
+        if (placeholder) placeholder.remove();
+        const timestamp = new Date();
+        const timeLabel = timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const item = document.createElement('li');
+        item.className = `result-item is-${state}`;
+        const span = document.createElement('span');
+        span.textContent = message;
+        const time = document.createElement('time');
+        time.setAttribute('datetime', timestamp.toISOString());
+        time.textContent = timeLabel;
+        item.append(span, time);
+        resultHistoryEl.prepend(item);
+        const entries = resultHistoryEl.querySelectorAll('li');
+        if (entries.length > 5) {
+          Array.from(entries)
+            .slice(5)
+            .forEach((entry) => entry.remove());
+        }
+      }
     }
     function showModal(title, status, pct = 0) {
       $('modalTitle').textContent = title;
@@ -1078,6 +1212,7 @@
         }
         appendLog('Déclenchement de la génération DeepSeek.');
         showModal('🚀 Lancement', 'Copie du modèle…', 18);
+        updateResultPanel({ state: 'progress', message: 'Génération en cours…', recordHistory: false });
         const runner = (typeof google !== 'undefined' && google.script && google.script.run) ? google.script.run : null;
         if (!runner) {
           appendLog('google.script.run indisponible (mode hors Apps Script).');
@@ -1086,6 +1221,7 @@
             $('progressBar').style.width = '100%';
             $('modalResult').innerHTML = '<p>google.script.run non disponible hors Apps Script.</p>';
             $('btnCloseModal').style.display = 'inline-flex';
+            updateResultPanel({ state: 'error', message: 'Prévisualisation locale uniquement (Apps Script requis).', recordHistory: true });
           }, 600);
           return;
         }
@@ -1094,17 +1230,24 @@
           .withSuccessHandler(res => {
             if (res && res.success) {
               showModal('🎉 Succès', 'Document créé', 100);
-              $('modalResult').innerHTML = `<a href="${res.url}" target="_blank" rel="noopener">📄 Ouvrir le document</a>`;
-              appendLog(`Succès génération · Doc: ${res.url}`);
+              const docUrl = res && res.url ? res.url : '';
+              $('modalResult').innerHTML = docUrl ? `<a href="${docUrl}" target="_blank" rel="noopener">📄 Ouvrir le document</a>` : '';
+              const successMessage = docUrl ? 'Document généré' : 'Document généré (URL non transmise)';
+              updateResultPanel({ state: 'success', message: successMessage, link: docUrl, linkLabel: 'Ouvrir', recordHistory: true });
+              appendLog(docUrl ? `Succès génération · Doc: ${docUrl}` : 'Succès génération (URL non transmise).');
             } else {
               showModal('❌ Erreur', (res && res.error) || 'Erreur inconnue', 0);
-              appendLog(`Erreur génération: ${(res && res.error) || 'inconnue'}`);
+              const errorMessage = (res && res.error) || 'Erreur inconnue';
+              updateResultPanel({ state: 'error', message: errorMessage, recordHistory: true });
+              appendLog(`Erreur génération: ${errorMessage}`);
             }
             $('btnCloseModal').style.display = 'inline-flex';
           })
           .withFailureHandler(err => {
             showModal('❌ Erreur', err && err.message ? err.message : String(err), 0);
-            appendLog(`Erreur technique: ${err && err.message ? err.message : String(err)}`);
+            const errorText = err && err.message ? err.message : String(err);
+            updateResultPanel({ state: 'error', message: errorText, recordHistory: true });
+            appendLog(`Erreur technique: ${errorText}`);
             $('btnCloseModal').style.display = 'inline-flex';
           })
           .generateFromForm(fd);
