@@ -33,6 +33,14 @@ const COLOR_MAPPING = {
   demarche: "#76A5AF",
   phases: "#8E7CC3",
   phrase: "#F6B26B",
+  deepseekModel: "#9DC3E6",
+  llmTemperature: "#F4B183",
+  llmTopP: "#B4C7E7",
+  llmMaxTokens: "#A9D18E",
+  journalHorodatage: "#CFE2F3",
+  journalType: "#F9CB9C",
+  journalCours: "#D5A6BD",
+  log: "#B6D7A8",
 };
 
 // === utils mapping (2 sens) ===
@@ -97,6 +105,13 @@ const COST_LOG_HEADER = [
   "titre",
   "thematique",
   "dureeProjet",
+  "journal_timestamp",
+  "journal_type",
+  "journal_cours",
+  "automation_log",
+  "llm_temperature",
+  "llm_top_p",
+  "llm_max_tokens",
 ];
 
 // === WebApp ===
@@ -156,6 +171,11 @@ function callLLM_(provider, prompt, systemPrompt, temperature, options) {
     temperature: typeof temperature === "number" ? temperature : 0.7,
     max_tokens: options && options.maxTokens ? options.maxTokens : 900,
   };
+
+  if (options && typeof options.topP === "number" && !isNaN(options.topP)) {
+    var safeTopP = Math.min(1, Math.max(0, options.topP));
+    payload.top_p = safeTopP;
+  }
 
   var fetchOptions = {
     method: "post",
@@ -682,13 +702,37 @@ function generateFullProposal(formData) {
     // ... dans function generateFullProposal(formData) ...
     var chosenModel = resolveDeepseekModel_(formData && formData.deepseekModel);
 
-    // Valeurs fixees cote serveur
+    var tempCandidate =
+      typeof formData.llmTemperature === "number"
+        ? formData.llmTemperature
+        : parseFloat(formData.llmTemperature);
     var temp = 0.6;
+    if (!isNaN(tempCandidate)) {
+      temp = Math.min(2, Math.max(0, tempCandidate));
+    }
+
+    var maxTokCandidate =
+      typeof formData.llmMaxTokens === "number"
+        ? formData.llmMaxTokens
+        : parseInt(formData.llmMaxTokens, 10);
     var maxTok = 1800;
+    if (!isNaN(maxTokCandidate) && maxTokCandidate > 0) {
+      maxTok = Math.min(4000, Math.max(200, maxTokCandidate));
+    }
+
+    var topPCandidate =
+      typeof formData.llmTopP === "number"
+        ? formData.llmTopP
+        : parseFloat(formData.llmTopP);
+    var topP = null;
+    if (!isNaN(topPCandidate)) {
+      topP = Math.min(1, Math.max(0, topPCandidate));
+    }
 
     var llm = callLLM_(chosenModel, user, sys, temp, {
       model: chosenModel,
       maxTokens: maxTok,
+      topP: topP,
     });
     if (!llm.success) return llm;
 
@@ -731,6 +775,7 @@ function generateFullProposal(formData) {
       llmContent: llm.content,
       temperature: temp,
       maxTokens: maxTok,
+      topP: topP,
     };
     if (log && log.url) payload.costLogUrl = log.url;
     return payload;
@@ -871,6 +916,27 @@ function logCostEntry_(entry, formData) {
     var got = getOrCreateCostSheet_();
     var sh =
       got.sheet || got.ss.getSheetByName("log") || got.ss.getActiveSheet();
+    var journalTs = "";
+    if (formData && formData.journalHorodatage) {
+      var parsedTs = new Date(formData.journalHorodatage);
+      journalTs = isNaN(parsedTs.getTime())
+        ? formData.journalHorodatage
+        : parsedTs;
+    }
+    var journalType = (formData && formData.journalType) || "";
+    var journalCours = (formData && formData.journalCours) || "";
+    var automationLog = (formData && formData.log) || "";
+    function safeNumberField(val, integer) {
+      if (typeof val === "number" && !isNaN(val)) return val;
+      if (val === null || val === undefined || val === "") return "";
+      var parsed = integer
+        ? parseInt(val, 10)
+        : parseFloat(val);
+      return isNaN(parsed) ? "" : parsed;
+    }
+    var llmTemp = safeNumberField(formData && formData.llmTemperature, false);
+    var llmTopP = safeNumberField(formData && formData.llmTopP, false);
+    var llmMaxTok = safeNumberField(formData && formData.llmMaxTokens, true);
     sh.appendRow([
       new Date(),
       entry.entryType || "",
@@ -894,6 +960,13 @@ function logCostEntry_(entry, formData) {
       (formData && formData.titre) || "",
       (formData && formData.thematique) || "",
       (formData && formData.dureeProjet) || "",
+      journalTs,
+      journalType,
+      journalCours,
+      automationLog,
+      llmTemp,
+      llmTopP,
+      llmMaxTok,
     ]);
     return { success: true, url: got.url };
   } catch (err) {
