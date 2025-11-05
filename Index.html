@@ -1311,7 +1311,7 @@
     const integerFields = new Set(['llmMaxTokens']);
     const rawFields = new Set(['log']);
     function collectForm() {
-      const fields = ['titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','ia_probleme','ia_solution','ia_objectifs','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
+      const fields = ['titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','ia_probleme','ia_solution','ia_objectifs','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
       const out = {};
       fields.forEach(f => {
         const el = $('f_' + f);
