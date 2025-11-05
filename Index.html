@@ -1555,13 +1555,19 @@
     }
 
     const initRunner = getRunner();
-    if (icamLogoEls.length && initRunner) {
-      initRunner.withSuccessHandler((url) => {
-        if (!url) return;
-        const probe = new Image();
-        probe.onload = () => icamLogoEls.forEach((img) => { img.src = url; });
-        probe.src = url;
-      }).getIcamLogoDataUrl();
+    if (icamLogoEls.length) {
+      const fallbackLogo = 'https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png';
+      const paintLogo = (src) => icamLogoEls.forEach((img) => { if (img && src) img.src = src; });
+      paintLogo(fallbackLogo);
+      if (initRunner) {
+        initRunner.withSuccessHandler((url) => {
+          if (!url) return;
+          const probe = new Image();
+          probe.onload = () => paintLogo(url);
+          probe.onerror = () => paintLogo(fallbackLogo);
+          probe.src = url;
+        }).getIcamLogoDataUrl();
+      }
     }
     if (costLogLinkEl && initRunner) {
       initRunner.withSuccessHandler(updateCostLogLink).getCostLogUrl_public();
