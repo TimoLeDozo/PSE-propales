@@ -59,7 +59,7 @@ Cette section s'adresse aux personnes qui doivent lire et ajuster le code Apps S
 ```
 
 ### Flux principal
-1. **Formulaire HTML (`Index.html`)** : collecte les données, ouvre un modal de suivi de progression et appelle `google.script.run.generateFromForm(fd)` côté serveur.
+1. **Formulaire HTML (`Index.html`)** : collecte les données, ouvre un modal de suivi de progression et appelle `google.script.run.generateFullProposal(fd)` côté serveur (un alias `generateFromForm` reste disponible pour les anciennes versions de l'interface).
 2. **Back-end (`Code.js`)** :
    - `generateFullProposal(formData)` valide les champs obligatoires, construit un *prompt* (`brief`) et appelle `callLLM_`.
    - `callLLM_` envoie la requête à DeepSeek (modèle, température, `max_tokens`) et calcule le coût via `calculateUsageCost_`.
