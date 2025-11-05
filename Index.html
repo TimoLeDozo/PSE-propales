@@ -749,7 +749,7 @@
   <header class="glass">
     <nav>
       <a href="#home" class="logo">
-        <img id="logoIcamHeader" class="logo-icon" alt="Icam" data-icam-logo src="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" loading="lazy" decoding="async" />
+        <img id="logoIcamHeader" class="logo-icon" alt="Icam" data-icam-logo loading="lazy" decoding="async" />
         <span class="sr-only">Icam Propales</span>
       </a>
       <ul class="nav-links">
@@ -807,7 +807,7 @@
       <div class="console-wrapper">
         <div class="console-header">
           <div class="console-header-top">
-            <img id="logoIcam" class="console-logo" alt="Icam" data-icam-logo src="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" loading="lazy" decoding="async" />
+            <img id="logoIcam" class="console-logo" alt="Icam" data-icam-logo loading="lazy" decoding="async" />
             <div class="console-header-text">
               <h2>Console Neural · Génération de propale</h2>
               <p>Renseignez les zones clés. Toutes les informations sont transmises à Apps Script qui orchestre la copie du template Google Docs, le remplissage des zones surlignées et l'appel à DeepSeek.</p>
@@ -1160,7 +1160,17 @@
     const resultPreviewEl = $('resultPreview');
     const costLogLinkEl = $('costLogLink');
     const filesHintEl = $('filesHint');
+    const LOGO_FALLBACK_URL = 'https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png';
     const icamLogoEls = Array.from(document.querySelectorAll('[data-icam-logo]'));
+    const paintIcamLogo = (url) => {
+      if (!url) return;
+      icamLogoEls.forEach((img) => {
+        if (img && img.src !== url) {
+          img.src = url;
+        }
+      });
+    };
+    paintIcamLogo(LOGO_FALLBACK_URL);
     let copyProgressTimer = null;
     let copyProgressValue = 0;
     function setModalProgress(pct, message = '', appendPercent = false) {
@@ -1555,19 +1565,13 @@
     }
 
     const initRunner = getRunner();
-    if (icamLogoEls.length) {
-      const fallbackLogo = 'https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png';
-      const paintLogo = (src) => icamLogoEls.forEach((img) => { if (img && src) img.src = src; });
-      paintLogo(fallbackLogo);
-      if (initRunner) {
-        initRunner.withSuccessHandler((url) => {
-          if (!url) return;
-          const probe = new Image();
-          probe.onload = () => paintLogo(url);
-          probe.onerror = () => paintLogo(fallbackLogo);
-          probe.src = url;
-        }).getIcamLogoDataUrl();
-      }
+    if (icamLogoEls.length && initRunner) {
+      initRunner.withSuccessHandler((url) => {
+        if (!url) return;
+        const probe = new Image();
+        probe.onload = () => paintIcamLogo(url);
+        probe.src = url;
+      }).getIcamLogoDataUrl();
     }
     if (costLogLinkEl && initRunner) {
       initRunner.withSuccessHandler(updateCostLogLink).getCostLogUrl_public();
