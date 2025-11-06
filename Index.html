@@ -139,9 +139,15 @@
       text-transform: uppercase;
       color: #fefbff;
     }
+    .icam-logo {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+    }
     .logo-icon {
       width: 46px;
-      height: 46px;
+      aspect-ratio: 1 / 1;
       filter: drop-shadow(0 0 12px rgba(224, 163, 255, 0.65));
     }
     .nav-links {
@@ -362,15 +368,24 @@
       flex-wrap: wrap;
       margin-bottom: 18px;
     }
-    .console-logo {
-      width: 56px;
-      height: 56px;
-      border-radius: 16px;
+    .console-logo-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: clamp(88px, 18vw, 140px);
+      aspect-ratio: 1 / 1;
+      padding: 12px;
+      border-radius: 24px;
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid rgba(255, 255, 255, 0.12);
-      padding: 8px;
       box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(14px);
+    }
+    .console-logo {
+      width: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      filter: drop-shadow(0 0 14px rgba(224, 163, 255, 0.6));
     }
     .console-header p { max-width: 780px; margin: 0 auto; }
     .result-preview {
@@ -722,6 +737,10 @@
     @media (max-width: 900px) {
       .console-layout { gap: 28px; }
       .results-column { order: 2; }
+      .console-logo-wrapper {
+        width: clamp(72px, 28vw, 110px);
+        padding: 10px;
+      }
     }
     @media (max-width: 620px) {
       .result-item { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -748,6 +767,7 @@
       .glass-panel { padding: 26px; }
       .contact-form, .contact-info { padding: 30px; }
       .hexagon { width: 240px; height: 300px; }
+      .console-logo-wrapper { width: 64px; padding: 8px; }
     }
     ::-webkit-scrollbar { width: 12px; }
     ::-webkit-scrollbar-track { background: rgba(8, 8, 8, 0.85); }
@@ -771,7 +791,7 @@
   <header class="glass">
     <nav>
       <a href="#home" class="logo">
-        <img id="logoIcamHeader" class="logo-icon" alt="Icam" data-icam-logo data-fallback-logo="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" />
+        <img class="icam-logo logo-icon" src="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" alt="Icam" data-icam-logo data-fallback-logo="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" />
         <span class="sr-only">Icam Propales</span>
       </a>
       <ul class="nav-links">
@@ -835,7 +855,9 @@
       <div class="console-wrapper">
         <div class="console-header">
           <div class="console-header-top">
-            <img id="logoIcam" class="console-logo" alt="Icam" data-icam-logo data-fallback-logo="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" />
+            <div class="console-logo-wrapper">
+              <img class="icam-logo console-logo" src="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" alt="Icam" data-icam-logo data-fallback-logo="https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png" />
+            </div>
             <div class="console-header-text">
               <h2>Console Neural · Génération de propale</h2>
               <p>Renseignez les zones clés. Toutes les informations sont transmises à Apps Script qui orchestre la copie du template Google Docs, le remplissage des zones surlignées et l'appel à DeepSeek.</p>
