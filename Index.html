@@ -315,13 +315,62 @@
       box-shadow: var(--glass-shadow);
       backdrop-filter: blur(22px);
     }
-    .result-card { display: grid; gap: 20px; }
+    .insights-panel {
+      background: var(--glass-bg);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 32px;
+      padding: 36px;
+      box-shadow: 0 28px 60px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(24px);
+      display: grid;
+      gap: 28px;
+      position: relative;
+      isolation: isolate;
+    }
+    .insights-panel::after {
+      content: '';
+      position: absolute;
+      inset: 12px;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      pointer-events: none;
+      z-index: -1;
+    }
+    .insights-header { display: grid; gap: 6px; }
+    .insights-header h3 { font-size: 1.35rem; letter-spacing: 0.04em; color: #fff; }
+    .insights-header p { color: var(--color-text-muted); font-size: 0.92rem; }
+    .insights-section { display: grid; gap: 14px; }
+    .insights-section h4 {
+      font-size: 0.82rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .insights-section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .insights-section-heading h4 { margin: 0; }
+    .insights-tips {
+      list-style: none;
+      display: grid;
+      gap: 10px;
+      color: var(--color-text-muted);
+      font-size: 0.9rem;
+      padding-left: 0;
+      margin: 0;
+    }
+    .insights-tips li { display: flex; gap: 12px; align-items: flex-start; }
+    .insights-tips li span:first-child { font-size: 1.1rem; }
     .generation-progress {
       display: none;
       flex-direction: column;
       gap: 12px;
-      padding: 16px 20px;
-      border-radius: 18px;
+      padding: 18px 20px;
+      border-radius: 20px;
       border: 1px solid rgba(255, 255, 255, 0.12);
       background: rgba(255, 255, 255, 0.05);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -401,15 +450,6 @@
       white-space: pre-wrap;
     }
     .result-preview strong { color: var(--color-text); }
-    .history-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--color-text-muted);
-    }
     .cost-log-link {
       display: inline-flex;
       align-items: center;
@@ -557,39 +597,71 @@
     .result-status.is-progress { border-color: rgba(0, 247, 255, 0.45); background: rgba(0, 247, 255, 0.08); }
     .result-status.is-success { border-color: rgba(0, 255, 153, 0.45); background: rgba(0, 255, 153, 0.08); }
     .result-status.is-error { border-color: rgba(255, 105, 180, 0.5); background: rgba(255, 105, 180, 0.1); }
-    .result-history { list-style: none; display: grid; gap: 14px; }
-    .result-item {
-      display: flex;
-      justify-content: space-between;
+    .result-history {
+      position: relative;
+      list-style: none;
+      display: grid;
       gap: 18px;
-      align-items: center;
-      padding: 14px 18px;
-      border-radius: 16px;
+      margin: 0;
+      padding-left: 0;
+    }
+    .insights-timeline::before {
+      content: '';
+      position: absolute;
+      top: 12px;
+      bottom: 0;
+      left: 18px;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(224, 163, 255, 0.7), rgba(0, 255, 255, 0.4));
+      opacity: 0.65;
+    }
+    .result-item {
+      position: relative;
+      display: grid;
+      gap: 6px;
+      padding: 16px 18px 16px 56px;
+      border-radius: 18px;
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.08);
       color: var(--color-text-soft);
       font-size: 0.9rem;
       transition: transform var(--transition-base), border-color var(--transition-base), background var(--transition-base);
     }
-    .result-item time { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--color-text-muted); text-transform: uppercase; }
+    .result-item::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: 10px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(0, 255, 255, 0.6);
+      background: #050505;
+      box-shadow: 0 0 0 4px rgba(0, 255, 255, 0.12);
+    }
+    .result-item.is-progress::before {
+      border-color: rgba(0, 247, 255, 0.85);
+      box-shadow: 0 0 0 4px rgba(0, 247, 255, 0.18);
+    }
+    .result-item.is-success::before {
+      border-color: rgba(0, 255, 153, 0.85);
+      box-shadow: 0 0 0 4px rgba(0, 255, 153, 0.18);
+    }
+    .result-item.is-error::before {
+      border-color: rgba(255, 105, 180, 0.85);
+      box-shadow: 0 0 0 4px rgba(255, 105, 180, 0.2);
+    }
+    .result-item span { color: var(--color-text-soft); }
+    .result-item time {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+    }
     .result-item:hover { transform: translateY(-3px); border-color: rgba(0, 247, 255, 0.3); }
     .result-item.is-progress { border-color: rgba(0, 247, 255, 0.3); }
     .result-item.is-success { border-color: rgba(0, 255, 153, 0.35); }
     .result-item.is-error { border-color: rgba(255, 105, 180, 0.35); }
-    .tips-panel {
-      padding: 28px;
-      border-radius: 24px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      display: grid;
-      gap: 16px;
-      transition: transform var(--transition-base), border-color var(--transition-base);
-    }
-    .tips-panel:hover { transform: translateY(-6px); border-color: rgba(0, 247, 255, 0.25); }
-    .tips-panel h3 { font-size: 1.1rem; color: var(--color-text); }
-    .tips-panel ul { list-style: none; display: grid; gap: 10px; color: var(--color-text-muted); font-size: 0.9rem; }
-    .tips-panel li { display: flex; align-items: center; gap: 10px; }
-    .tips-panel li span { font-size: 1.1rem; }
     .panel-title { font-size: 1.3rem; font-weight: 600; margin-bottom: 24px; letter-spacing: 0.04em; display: flex; align-items: center; gap: 10px; color: #fff; }
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px 22px; }
     .field label { display: block; margin-bottom: 8px; font-size: 0.78rem; letter-spacing: 0.14em; color: rgba(255, 255, 255, 0.65); text-transform: uppercase; }
@@ -700,13 +772,17 @@
     @media (max-width: 900px) {
       .console-layout { gap: 28px; }
       .results-column { order: 2; }
+      .insights-panel { padding: 30px; gap: 24px; }
+      .insights-section h4 { letter-spacing: 0.12em; }
       .console-logo-wrapper {
         width: clamp(72px, 28vw, 110px);
         padding: 10px;
       }
     }
     @media (max-width: 620px) {
-      .result-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .insights-timeline::before { left: 14px; }
+      .result-item { padding: 16px 16px 16px 48px; }
+      .result-item::before { left: 4px; }
     }
     @media (max-width: 1000px) {
       .nav-links { display: none; }
@@ -912,36 +988,46 @@
             </div>
           </div>
           <aside class="results-column">
-            <div class="glass-panel result-card">
-              <div class="panel-title">📊 Statut & journal</div>
-              <div class="result-status is-idle" id="resultStatus"><span>En attente d’une génération.</span></div>
-              <div class="generation-progress" id="generationProgress" aria-hidden="true">
-                <div class="generation-progress-header">
-                  <span class="generation-progress-message" id="generationProgressMessage">Préparation…</span>
-                  <span class="generation-progress-percent" id="generationProgressPercent">0%</span>
-                </div>
-                <div class="generation-progress-bar" id="generationProgressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                  <div class="generation-progress-bar-fill" id="generationProgressFill"></div>
+            <section class="insights-panel">
+              <header class="insights-header">
+                <h3>📟 Pilotage & journalisation</h3>
+                <p>Suivez l’état de la génération, le suivi des coûts et les derniers évènements.</p>
+              </header>
+              <div class="insights-section">
+                <h4>Statut en direct</h4>
+                <div class="result-status is-idle" id="resultStatus"><span>En attente d’une génération.</span></div>
+                <div class="generation-progress" id="generationProgress" aria-hidden="true">
+                  <div class="generation-progress-header">
+                    <span class="generation-progress-message" id="generationProgressMessage">Préparation…</span>
+                    <span class="generation-progress-percent" id="generationProgressPercent">0%</span>
+                  </div>
+                  <div class="generation-progress-bar" id="generationProgressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div class="generation-progress-bar-fill" id="generationProgressFill"></div>
+                  </div>
                 </div>
               </div>
-              <div class="history-title">
-                <span>📝 Prévisualisation</span>
-                <a id="costLogLink" class="cost-log-link is-disabled" href="#" target="_blank" rel="noopener" aria-disabled="true">📊 Journal des coûts</a>
+              <div class="insights-section">
+                <div class="insights-section-heading">
+                  <h4>Prévisualisation</h4>
+                  <a id="costLogLink" class="cost-log-link is-disabled" href="#" target="_blank" rel="noopener" aria-disabled="true">📊 Journal des coûts</a>
+                </div>
+                <pre id="resultPreview" class="result-preview">Prêt à compiler les informations du brief.</pre>
               </div>
-              <pre id="resultPreview" class="result-preview">Prêt à compiler les informations du brief.</pre>
-              <div class="history-title"><span>🕒 Historique</span></div>
-              <ul id="resultHistory" class="result-history">
-                <li class="result-item is-idle" data-placeholder="true"><span>Historique vide pour le moment.</span><time datetime=""></time></li>
-              </ul>
-            </div>
-            <div class="tips-panel">
-              <h3>Astuce workflow</h3>
-              <ul>
-                <li><span>🧾</span><span>Précisez le problème principal pour guider DeepSeek.</span></li>
-                <li><span>📎</span><span>Ajoutez des documents clés pour la mise en contexte.</span></li>
-                <li><span>📊</span><span>Consultez le journal Google Sheets pour suivre les coûts.</span></li>
-              </ul>
-            </div>
+              <div class="insights-section">
+                <h4>Historique des actions</h4>
+                <ol id="resultHistory" class="result-history insights-timeline">
+                  <li class="result-item is-idle" data-placeholder="true"><span>Historique vide pour le moment.</span><time datetime=""></time></li>
+                </ol>
+              </div>
+              <div class="insights-section">
+                <h4>Conseils rapides</h4>
+                <ul class="insights-tips">
+                  <li><span aria-hidden="true">🧾</span><span>Précisez le problème principal pour guider DeepSeek.</span></li>
+                  <li><span aria-hidden="true">📎</span><span>Ajoutez des documents clés pour la mise en contexte.</span></li>
+                  <li><span aria-hidden="true">📊</span><span>Consultez le journal Google Sheets pour suivre les coûts.</span></li>
+                </ul>
+              </div>
+            </section>
           </aside>
         </div>
       </div>
