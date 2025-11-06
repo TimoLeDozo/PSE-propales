@@ -677,6 +677,7 @@ function applyUpdatesToDoc_(docId, updates, options) {
 
 function generateFullProposal(formData) {
   try {
+    var generationStartedAt = Date.now();
     if (!formData || !formData.titre || !formData.entrepriseNom) {
       return {
         success: false,
@@ -736,6 +737,12 @@ function generateFullProposal(formData) {
     });
     if (!llm.success) return llm;
 
+    var measuredLatency =
+      llm && typeof llm.latencyMs === "number" && llm.latencyMs >= 0
+        ? llm.latencyMs
+        : Date.now() - generationStartedAt;
+    llm.latencyMs = measuredLatency;
+
     var sections;
     try {
       sections = JSON.parse(llm.content);
@@ -770,7 +777,8 @@ function generateFullProposal(formData) {
       model: llm.model,
       usage: llm.usage,
       cost: llm.cost,
-      latencyMs: llm.latencyMs,
+      latencyMs: measuredLatency,
+      generationDurationMs: measuredLatency,
       aiSections: sections,
       llmContent: llm.content,
       temperature: temp,
@@ -866,6 +874,27 @@ function estimateApiCost(formData, options) {
     },
     total: total,
   };
+}
+
+function estimateGenerationDurationMs_(est) {
+  var DEFAULT_MS = 15000;
+  if (!est) return DEFAULT_MS;
+  var tokens = 0;
+  if (est.input && typeof est.input.tokens === "number")
+    tokens += est.input.tokens;
+  if (est.output && typeof est.output.tokens === "number")
+    tokens += est.output.tokens;
+  var model = est.model || DEFAULT_DEEPSEEK_MODEL;
+  var perToken = model === "deepseek-reasoner" ? 18 : 12;
+  var base = 5000;
+  if (tokens <= 0) return DEFAULT_MS;
+  var estimate = base + perToken * tokens;
+  if (est.assumeCacheHit) estimate = estimate * 0.85;
+  var minMs = 6000;
+  var maxMs = 60000;
+  if (estimate < minMs) estimate = minMs;
+  if (estimate > maxMs) estimate = maxMs;
+  return Math.round(estimate);
 }
 
 function getOrCreateCostSheet_() {
@@ -1033,7 +1062,13 @@ function estimateAndLogCost_public(formData) {
     tokensPerPage: 600,
   });
   var log = logCostEstimation_(est, formData);
-  return { est: est, sheetUrl: log && log.url ? log.url : null };
+  var etaMs = estimateGenerationDurationMs_(est);
+  est.estimatedDurationMs = etaMs;
+  return {
+    est: est,
+    sheetUrl: log && log.url ? log.url : null,
+    estimatedDurationMs: etaMs,
+  };
 }
 
 function getCostLogUrl_public() {

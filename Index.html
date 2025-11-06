@@ -310,6 +310,50 @@
       backdrop-filter: blur(22px);
     }
     .result-card { display: grid; gap: 20px; }
+    .generation-progress {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px 20px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      color: var(--color-text-soft);
+    }
+    .generation-progress.is-active { display: flex; animation: fadeSlideIn 0.4s ease; }
+    .generation-progress-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+    }
+    .generation-progress-message { color: var(--color-text-soft); }
+    .generation-progress-percent {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: #ffffff;
+    }
+    .generation-progress-bar {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+    .generation-progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(127, 127, 255, 0.95), rgba(0, 255, 255, 0.85));
+      transition: width 0.3s ease;
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .console-header-top {
       display: flex;
       align-items: center;
@@ -924,6 +968,15 @@
             <div class="glass-panel result-card">
               <div class="panel-title">📊 Statut & journal</div>
               <div class="result-status is-idle" id="resultStatus"><span>En attente d’une génération.</span></div>
+              <div class="generation-progress" id="generationProgress" aria-hidden="true">
+                <div class="generation-progress-header">
+                  <span class="generation-progress-message" id="generationProgressMessage">Préparation…</span>
+                  <span class="generation-progress-percent" id="generationProgressPercent">0%</span>
+                </div>
+                <div class="generation-progress-bar" id="generationProgressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <div class="generation-progress-bar-fill" id="generationProgressFill"></div>
+                </div>
+              </div>
               <div class="history-title">
                 <span>📝 Prévisualisation</span>
                 <a id="costLogLink" class="cost-log-link is-disabled" href="#" target="_blank" rel="noopener" aria-disabled="true">📊 Journal des coûts</a>
@@ -1214,9 +1267,142 @@
     const resultStatusEl = $('resultStatus');
     const resultHistoryEl = $('resultHistory');
     const resultPreviewEl = $('resultPreview');
+    const generationProgressEl = $('generationProgress');
+    const generationProgressMessageEl = $('generationProgressMessage');
+    const generationProgressPercentEl = $('generationProgressPercent');
+    const generationProgressFillEl = $('generationProgressFill');
+    const generationProgressBarEl = $('generationProgressBar');
     const costLogLinkEl = $('costLogLink');
     const filesHintEl = $('filesHint');
     const icamLogoEls = Array.from(document.querySelectorAll('[data-icam-logo]'));
+    const generationProgress = (() => {
+      if (!generationProgressEl) {
+        const noop = () => {};
+        return { start: noop, step: noop, settle: noop, fail: noop, reset: noop };
+      }
+
+      let timer = null;
+      let manualPct = 0;
+      let finished = false;
+      let startedAt = 0;
+      let estimatedMs = 15000;
+
+      function setVisibility(show) {
+        generationProgressEl.classList.toggle('is-active', !!show);
+        generationProgressEl.setAttribute('aria-hidden', show ? 'false' : 'true');
+      }
+
+      function updateFill(pct) {
+        const bounded = Math.max(0, Math.min(100, Number(pct) || 0));
+        if (generationProgressFillEl) {
+          generationProgressFillEl.style.width = bounded + '%';
+        }
+        if (generationProgressPercentEl) {
+          generationProgressPercentEl.textContent = Math.round(bounded) + '%';
+        }
+        if (generationProgressBarEl) {
+          generationProgressBarEl.setAttribute('aria-valuenow', String(Math.round(bounded)));
+        }
+        return bounded;
+      }
+
+      function clearTimer() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+
+      function ensureTimer() {
+        if (timer) return;
+        timer = setInterval(() => {
+          if (finished) {
+            clearTimer();
+            return;
+          }
+          if (!estimatedMs) return;
+          const elapsed = Date.now() - startedAt;
+          const autoPct = Math.min(99, (elapsed / estimatedMs) * 100);
+          const target = Math.max(manualPct, autoPct);
+          updateFill(target);
+        }, 180);
+      }
+
+      function applyEstimate(ms) {
+        if (!ms || ms <= 0) return;
+        estimatedMs = Math.max(ms, 4000);
+      }
+
+      return {
+        start({ message, estimatedMs: eta } = {}) {
+          startedAt = Date.now();
+          manualPct = 0;
+          finished = false;
+          applyEstimate(eta || estimatedMs);
+          updateFill(0);
+          if (generationProgressMessageEl) {
+            generationProgressMessageEl.textContent = message || 'Préparation de la génération…';
+          }
+          setVisibility(true);
+          clearTimer();
+          ensureTimer();
+        },
+        step({ message, pct, estimatedMs: eta } = {}) {
+          if (finished) return;
+          if (eta) applyEstimate(eta);
+          if (typeof pct === 'number' && !isNaN(pct)) {
+            manualPct = Math.max(manualPct, Math.min(99, pct));
+            updateFill(manualPct);
+          }
+          if (message && generationProgressMessageEl) {
+            generationProgressMessageEl.textContent = message;
+          }
+          ensureTimer();
+        },
+        settle({ message, latencyMs, delay = 1500 } = {}) {
+          if (finished) return;
+          finished = true;
+          clearTimer();
+          const basePct = Math.max(manualPct, 92);
+          let current = updateFill(basePct);
+          if (message && generationProgressMessageEl) {
+            generationProgressMessageEl.textContent = message;
+          }
+          const finalLatency = latencyMs && latencyMs > 0 ? latencyMs : estimatedMs || 5000;
+          const steps = 5;
+          const increment = (100 - basePct) / steps;
+          let stepIndex = 0;
+          const settleTimer = setInterval(() => {
+            stepIndex++;
+            current = updateFill(current + increment);
+            if (stepIndex >= steps) {
+              clearInterval(settleTimer);
+              updateFill(100);
+              setTimeout(() => setVisibility(false), delay);
+            }
+          }, Math.max(90, finalLatency / (steps * 2)));
+        },
+        fail({ message, delay = 2200 } = {}) {
+          finished = true;
+          clearTimer();
+          if (message && generationProgressMessageEl) {
+            generationProgressMessageEl.textContent = message;
+          }
+          updateFill(100);
+          setTimeout(() => setVisibility(false), delay);
+        },
+        reset() {
+          finished = false;
+          clearTimer();
+          manualPct = 0;
+          updateFill(0);
+          if (generationProgressMessageEl) {
+            generationProgressMessageEl.textContent = '';
+          }
+          setVisibility(false);
+        },
+      };
+    })();
     function getRunner() {
       return (typeof google !== 'undefined' && google.script && google.script.run)
         ? google.script.run
@@ -1603,11 +1789,13 @@
           return;
         }
 
+        generationProgress.start({ message: 'Préparation de la génération…', estimatedMs: 18000 });
         updatePreview(buildFormPreview(fd));
         appendLog('Préparation de la génération DeepSeek.');
         showModal('🚀 Lancement', 'Estimation du coût…', 12);
         $('progressBar').style.width = '18%';
         updateResultPanel({ state: 'progress', message: 'Estimation du coût…', recordHistory: true });
+        generationProgress.step({ message: 'Estimation du coût…', pct: 14 });
 
         const runnerCheck = getRunner();
         if (!runnerCheck) {
@@ -1619,18 +1807,22 @@
             $('btnCloseModal').style.display = 'inline-flex';
             updateResultPanel({ state: 'error', message: 'Prévisualisation locale uniquement (Apps Script requis).', recordHistory: true });
           }, 600);
+          generationProgress.fail({ message: 'Hors Apps Script — progression arrêtée.' });
           return;
         }
 
         const launchGeneration = () => {
           appendLog('Transmission des données à Apps Script.');
+          generationProgress.step({ message: 'Transmission des données à Apps Script…', pct: 32 });
           $('modalStatus').textContent = 'Génération du document…';
           $('progressBar').style.width = '55%';
           updateResultPanel({ state: 'progress', message: 'Génération du document…', recordHistory: true });
+          generationProgress.step({ message: 'Génération du document…', pct: 58 });
           const runnerGenerate = getRunner();
           runnerGenerate
             .withSuccessHandler(res => {
               if (res && res.success) {
+                generationProgress.settle({ message: 'Document généré', latencyMs: res.latencyMs });
                 showModal('🎉 Succès', 'Document créé', 100);
                 const docUrl = res.url || '';
                 $('modalResult').innerHTML = docUrl ? `<a href="${docUrl}" target="_blank" rel="noopener">📄 Ouvrir le document</a>` : '';
@@ -1650,6 +1842,7 @@
                 }
               } else {
                 const errorMessage = (res && res.error) || 'Erreur inconnue';
+                generationProgress.fail({ message: errorMessage });
                 showModal('❌ Erreur', errorMessage, 0);
                 updateResultPanel({ state: 'error', message: errorMessage, recordHistory: true });
                 appendLog(`Erreur génération: ${errorMessage}`);
@@ -1658,6 +1851,7 @@
             })
             .withFailureHandler(err => {
               const errorText = err && err.message ? err.message : String(err);
+              generationProgress.fail({ message: errorText });
               showModal('❌ Erreur', errorText, 0);
               updateResultPanel({ state: 'error', message: errorText, recordHistory: true });
               appendLog(`Erreur technique: ${errorText}`);
@@ -1679,6 +1873,8 @@
               $('progressBar').style.width = '38%';
               updateResultPanel({ state: 'progress', message: summary, recordHistory: true });
               appendLog(summary);
+              const etaMs = res.estimatedDurationMs || est.estimatedDurationMs;
+              generationProgress.step({ message: summary, pct: 28, estimatedMs: etaMs });
               if (res.sheetUrl) updateCostLogLink(res.sheetUrl);
             }
             launchGeneration();
@@ -1689,6 +1885,7 @@
             $('modalStatus').textContent = 'Estimation indisponible, lancement direct…';
             $('progressBar').style.width = '32%';
             updateResultPanel({ state: 'progress', message: 'Estimation indisponible, lancement direct…', recordHistory: true });
+            generationProgress.step({ message: 'Estimation indisponible, lancement direct…', pct: 22 });
             launchGeneration();
           })
           .estimateAndLogCost_public(fd);
