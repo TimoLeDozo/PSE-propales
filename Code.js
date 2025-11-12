@@ -72,6 +72,219 @@ function buildMaps_(raw) {
 }
 var MAPS = buildMaps_(COLOR_MAPPING);
 
+// === Normalisation & diagnostics ===
+function normalizeTemplateValue_(field, value) {
+  if (field === "entrepriseLogo") {
+    return value || "";
+  }
+  if (value === null || value === undefined || value === "") {
+    return "À compléter";
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  return String(value);
+}
+
+function normalizeUpdatesObject_(updates) {
+  var normalized = {};
+  Object.keys(updates || {}).forEach(function (field) {
+    normalized[field] = normalizeTemplateValue_(field, updates[field]);
+  });
+  return normalized;
+}
+
+function logReplacementStats_(docId, stats) {
+  if (!stats) return;
+  Logger.log("📄 applyUpdatesToDoc_ %s — statistiques de remplacement:", docId);
+  Object.keys(stats).forEach(function (field) {
+    var detail = stats[field];
+    Logger.log(
+      "  • %s: %s occurrence(s) -> %s",
+      field,
+      detail.occurrences,
+      detail.valuePreview
+    );
+  });
+}
+
+function collectPlaceholderMatches_(text) {
+  if (!text) return [];
+  var matches = text.match(/\{\{[^\}]+\}\}|\[\[[^\]]+\]\]/g);
+  return matches ? matches : [];
+}
+
+function replaceResidualPlaceholders_(containers) {
+  var total = 0;
+  var pattern = /\{\{([^\}]+)\}\}/g;
+  containers.forEach(function (container) {
+    if (!container || !container.getText) return;
+    var text = container.getText();
+    var matches = text.match(pattern);
+    if (matches && matches.length) {
+      container.replaceText("\\{\\{([^\\}]+)\\}\\}", "À compléter");
+      total += matches.length;
+    }
+  });
+  return total;
+}
+
+function normalizeTextColors_(container) {
+  var updated = 0;
+  function walk(node) {
+    if (!node) return;
+    if (node.getType && node.getType() === DocumentApp.ElementType.TEXT) {
+      var textEl = node.asText();
+      var len = textEl.getText().length;
+      for (var i = 0; i < len; i++) {
+        var color = normalizeColorHex(textEl.getForegroundColor(i));
+        if (color && color !== "#000000") {
+          try {
+            textEl.setForegroundColor(i, i, "#000000");
+            updated++;
+          } catch (_) {}
+        }
+      }
+    }
+    if (node.getNumChildren) {
+      for (var c = 0; c < node.getNumChildren(); c++) {
+        walk(node.getChild(c));
+      }
+    }
+  }
+  walk(container);
+  return updated;
+}
+
+function deduplicateParagraphs_(body) {
+  if (!body) return { removed: 0, duplicates: [] };
+  var seen = {};
+  var removed = 0;
+  var duplicates = [];
+  var paragraphs = body.getParagraphs();
+  for (var i = paragraphs.length - 1; i >= 0; i--) {
+    var para = paragraphs[i];
+    var text = para.getText().trim();
+    if (!text) continue;
+    if (text.length < 25) continue; // éviter les listes courtes légitimes
+    var key = text.replace(/\s+/g, " ");
+    if (seen[key]) {
+      duplicates.push(text);
+      para.removeFromParent();
+      removed++;
+    } else {
+      seen[key] = true;
+    }
+  }
+  return { removed: removed, duplicates: duplicates };
+}
+
+function collectRemainingPlaceholders_(containers) {
+  var leftover = [];
+  containers.forEach(function (container) {
+    if (!container || !container.getText) return;
+    leftover = leftover.concat(collectPlaceholderMatches_(container.getText()));
+  });
+  return leftover;
+}
+
+function finalizeProposalDocument_(docId) {
+  var doc = DocumentApp.openById(docId);
+  var body = doc.getBody();
+  if (!body) {
+    return { success: false, error: "Document sans corps" };
+  }
+  var containers = [body];
+  var header = doc.getHeader();
+  var footer = doc.getFooter();
+  if (header) containers.push(header);
+  if (footer) containers.push(footer);
+
+  var replacedPlaceholders = replaceResidualPlaceholders_(containers);
+  if (replacedPlaceholders > 0) {
+    Logger.log(
+      "🧹 %s placeholder(s) résiduel(s) converti(s) en 'À compléter'.",
+      replacedPlaceholders
+    );
+  }
+
+  var normalizedChars = 0;
+  containers.forEach(function (container) {
+    normalizedChars += normalizeTextColors_(container);
+  });
+  if (normalizedChars > 0) {
+    Logger.log(
+      "🎨 Normalisation couleur: %s caractère(s) repassé(s) en noir.",
+      normalizedChars
+    );
+  }
+
+  var dedupStats = deduplicateParagraphs_(body);
+  if (dedupStats.removed > 0) {
+    Logger.log(
+      "♻️ Paragraphes dupliqués supprimés: %s",
+      dedupStats.removed
+    );
+    dedupStats.duplicates.slice(0, 5).forEach(function (txt) {
+      Logger.log("   - %s", txt.substring(0, 120));
+    });
+  }
+
+  var leftovers = collectRemainingPlaceholders_(containers);
+  if (leftovers.length) {
+    Logger.log(
+      "⚠️ Variables non remplacées détectées: %s",
+      leftovers.join(", ")
+    );
+  }
+
+  doc.saveAndClose();
+  return {
+    success: true,
+    stats: {
+      replacedPlaceholders: replacedPlaceholders,
+      normalizedChars: normalizedChars,
+      duplicatesRemoved: dedupStats.removed,
+      leftoverPlaceholders: leftovers,
+    },
+  };
+}
+
+function exportProposalPdf_(docId, options) {
+  options = options || {};
+  try {
+    var originalFile = DriveApp.getFileById(docId);
+    var tempCopy = originalFile.makeCopy(originalFile.getName() + "_PDF_PREP");
+    var tempDoc = DocumentApp.openById(tempCopy.getId());
+    var header = tempDoc.getHeader();
+    if (header) header.clear();
+    var footer = tempDoc.getFooter();
+    if (footer) footer.clear();
+    tempDoc.saveAndClose();
+
+    var pdfBlob = tempCopy.getAs(MimeType.PDF);
+    var folder = DriveApp.getFolderById(DESTINATION_FOLDER_ID);
+    var pdfName =
+      (options.fileName || originalFile.getName())
+        .replace(/\.pdf$/i, "") + ".pdf";
+    var pdfFile = folder.createFile(pdfBlob).setName(pdfName.trim());
+    tempCopy.setTrashed(true);
+    Logger.log(
+      "📦 Export PDF généré: %s (%s)",
+      pdfFile.getName(),
+      pdfFile.getUrl()
+    );
+    return {
+      success: true,
+      fileId: pdfFile.getId(),
+      url: pdfFile.getUrl(),
+      name: pdfFile.getName(),
+    };
+  } catch (err) {
+    return { success: false, error: String(err.message || err) };
+  }
+}
+
 // === DeepSeek (API & journal) ===
 const PROP_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY";
 const PROP_COST_SHEET_PROPKEY = "COST_SHEET_ID";
@@ -171,6 +384,18 @@ function callLLM_(provider, prompt, systemPrompt, temperature, options) {
     temperature: typeof temperature === "number" ? temperature : 0.7,
     max_tokens: options && options.maxTokens ? options.maxTokens : 900,
   };
+
+  Logger.log(
+    "🚀 DeepSeek payload — model: %s, temperature: %s, max_tokens: %s",
+    model,
+    payload.temperature,
+    payload.max_tokens
+  );
+  Logger.log(
+    "   • System prompt: %s",
+    (systemPrompt || "").substring(0, 300)
+  );
+  Logger.log("   • User prompt: %s", (prompt || "").substring(0, 300));
 
   if (options && typeof options.topP === "number" && !isNaN(options.topP)) {
     var safeTopP = Math.min(1, Math.max(0, options.topP));
@@ -389,8 +614,11 @@ function applyUpdatesToDoc_(docId, updates, options) {
     else textEl.insertText(at, insert);
   }
 
-  Object.keys(updates || {}).forEach(function (field) {
-    var val = updates[field];
+  var normalizedUpdates = normalizeUpdatesObject_(updates);
+  var replacementStats = {};
+
+  Object.keys(normalizedUpdates || {}).forEach(function (field) {
+    var val = normalizedUpdates[field];
     var ph = "[[" + field + "]]";
     var patt = escRegex(ph);
     var isLogo =
@@ -399,6 +627,7 @@ function applyUpdatesToDoc_(docId, updates, options) {
     containers.forEach(function (el) {
       if (!el) return;
       var r;
+      var replacedHere = 0;
       while ((r = el.findText(patt))) {
         var e = r.getElement();
         if (!e || e.getType() !== DocumentApp.ElementType.TEXT) break;
@@ -428,9 +657,21 @@ function applyUpdatesToDoc_(docId, updates, options) {
             safeInsert(t, s0, String(val));
           }
         }
+        replacedHere++;
+      }
+      if (replacedHere > 0) {
+        if (!replacementStats[field]) {
+          replacementStats[field] = {
+            occurrences: 0,
+            valuePreview: String(val).substring(0, 80),
+          };
+        }
+        replacementStats[field].occurrences += replacedHere;
       }
     });
   });
+
+  logReplacementStats_(docId, replacementStats);
 
   function forEachParagraphTexts(fn) {
     containers.forEach(function (root) {
@@ -550,7 +791,7 @@ function applyUpdatesToDoc_(docId, updates, options) {
           }
         }
 
-        var val = updates[field];
+        var val = normalizedUpdates[field];
         if (val != null && String(val).length) {
           var sVal = String(val);
           safeDelete(textEl, i, j - 1);
@@ -637,6 +878,24 @@ function generateFullProposal(formData) {
       "- **Thématique générale** : " + (formData.thematique || "Non spécifié"),
       "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié"),
     ].join("\n");
+
+    var mandatoryForPrompt = [
+      "entrepriseNom",
+      "ia_probleme",
+      "ia_solution",
+      "ia_objectifs",
+      "thematique",
+      "dureeProjet",
+    ];
+    var missingForPrompt = mandatoryForPrompt.filter(function (key) {
+      return !formData[key];
+    });
+    if (missingForPrompt.length) {
+      Logger.log(
+        "⚠️ Champs incomplets pour le prompt DeepSeek: %s",
+        missingForPrompt.join(", ")
+      );
+    }
 
     var sys =
       "## Mission\n" +
@@ -735,6 +994,10 @@ function generateFullProposal(formData) {
     });
     if (!u.success) return { success: false, error: u.error, url: copy.url };
 
+    var finalization = finalizeProposalDocument_(copy.documentId);
+    if (!finalization.success)
+      return { success: false, error: finalization.error, url: copy.url };
+
     var log = logApiUsage_(llm, formData);
 
     var payload = {
@@ -751,8 +1014,30 @@ function generateFullProposal(formData) {
       temperature: temp,
       maxTokens: maxTok,
       topP: topP,
+      postProcess: finalization.stats,
     };
     if (log && log.url) payload.costLogUrl = log.url;
+
+    var pdfNameParts = [
+      "Proposition",
+      formData.entrepriseNom || "Client",
+      Utilities.formatDate(
+        new Date(),
+        Session.getScriptTimeZone(),
+        "yyyy-MM-dd_HH-mm"
+      ),
+    ];
+    var pdfResult = exportProposalPdf_(copy.documentId, {
+      fileName: pdfNameParts.join("_"),
+    });
+    if (pdfResult.success) {
+      payload.pdfFileId = pdfResult.fileId;
+      payload.pdfUrl = pdfResult.url;
+      payload.pdfFileName = pdfResult.name;
+    } else {
+      payload.pdfError = pdfResult.error;
+      Logger.log("⚠️ Export PDF échoué: %s", pdfResult.error);
+    }
     return payload;
   } catch (e) {
     return { success: false, error: String(e.message || e) };
