@@ -289,89 +289,32 @@ function warmupAuth() {
   return "OK";
 }
 
-const PROP_ICAM_LOGO_CACHE = "ICAM_LOGO_DATAURL";
-const ICAM_LOGO_FALLBACK =
-  "data:image/png;base64," +
-  "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";
 function getIcamLogoDataUrl() {
+  const LOGO_URL = "https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png";
+  const CACHE_KEY = "ICAM_LOGO_DATA_URL_V3";
+  const cache = CacheService.getScriptCache();
+
   try {
-    var prop = PropertiesService.getScriptProperties();
-    var cached = prop.getProperty(PROP_ICAM_LOGO_CACHE);
-    if (cached) return cached;
+    const cachedDataUrl = cache.get(CACHE_KEY);
+    if (cachedDataUrl) {
+      return cachedDataUrl;
+    }
 
-    var url = "https://www.icam.fr/wp-content/uploads/2017/08/logo-icam-2.png";
-    try {
-      var resp = UrlFetchApp.fetch(url, {
-        muteHttpExceptions: true,
-        followRedirects: true,
-      });
-      if (resp.getResponseCode() >= 200 && resp.getResponseCode() < 300) {
-        var blob = resp.getBlob();
-        var base64 = Utilities.base64Encode(blob.getBytes());
-        var mime = blob.getContentType() || "image/png";
-        var dataUrl = "data:" + mime + ";base64," + base64;
-        prop.setProperty(PROP_ICAM_LOGO_CACHE, dataUrl);
-        return dataUrl;
-      }
-    } catch (_) {}
+    const imageBlob = UrlFetchApp.fetch(LOGO_URL).getBlob();
+    const contentType = imageBlob.getContentType();
+    if (!contentType || !contentType.startsWith("image/")) {
+       throw new Error("URL did not return a valid image. Content-Type: " + contentType);
+    }
 
-    prop.setProperty(PROP_ICAM_LOGO_CACHE, ICAM_LOGO_FALLBACK);
-    return ICAM_LOGO_FALLBACK;
+    const base64Data = Utilities.base64Encode(imageBlob.getBytes());
+    const dataUrl = "data:" + contentType + ";base64," + base64Data;
+
+    cache.put(CACHE_KEY, dataUrl, 3600 * 6); // Cache for 6 hours
+    return dataUrl;
   } catch (e) {
-    return ICAM_LOGO_FALLBACK;
+    console.error("Failed to fetch and encode Icam logo from " + LOGO_URL + ". Error: " + e.toString());
+    // In case of failure, return an empty string. The client-side has a fallback mechanism.
+    return "";
   }
 }
 
@@ -686,19 +629,43 @@ function generateFullProposal(formData) {
     }
 
     var brief = [
-      "Entreprise: " + (formData.entrepriseNom || ""),
-      "Probleme: " + (formData.ia_probleme || ""),
-      "Solution: " + (formData.ia_solution || ""),
-      "Objectifs: " + (formData.ia_objectifs || ""),
-      "Thematique: " + (formData.thematique || ""),
-      "Duree: " + (formData.dureeProjet || ""),
-      "Adresse: " + (formData.entrepriseAdresse || ""),
+      "## Fiche de renseignements",
+      "- **Entreprise cliente** : " + (formData.entrepriseNom || "Non spécifié"),
+      "- **Problématique principale** : " + (formData.ia_probleme || "Non spécifié"),
+      "- **Solution envisagée** : " + (formData.ia_solution || "Non spécifié"),
+      "- **Objectifs du projet** : " + (formData.ia_objectifs || "Non spécifié"),
+      "- **Thématique générale** : " + (formData.thematique || "Non spécifié"),
+      "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié"),
     ].join("\n");
+
     var sys =
-      "Tu es un consultant Icam. Retourne STRICTEMENT un JSON {contexte, demarche, phases, phrase}.";
+      "## Mission\n" +
+      "Tu es un consultant senior de l'Icam, un expert en ingénierie et stratégie industrielle. Ta mission est de rédiger une proposition commerciale percutante et sur mesure en réponse à un brief client. Tu ne te contentes pas de reformuler ; tu enrichis, tu contextualises et tu apportes une réelle valeur ajoutée en te basant sur ton expertise.\n\n" +
+      "## Directives Clés\n" +
+      "1.  **Persona & Ton** : Incarne un expert confiant, stratégique et orienté solution. Le ton doit être professionnel, précis et valoriser l'approche Icam (rigueur, pragmatisme, innovation).\n" +
+      "2.  **Format de Sortie Obligatoire** : Ta seule et unique réponse doit être un objet JSON valide. Aucun texte, commentaire ou markdown ne doit précéder ou suivre cet objet. La structure est non négociable : `{\"contexte\": \"...\", \"demarche\": \"...\", \"phases\": \"...\", \"phrase\": \"...\"}`.\n" +
+      "3.  **Enrichissement du Contenu (Règle Critique)** : Ne te limite JAMAIS à une simple reformulation du brief. Utilise les informations fournies comme un tremplin. Approfondis chaque section avec des concepts d'ingénierie, des méthodologies reconnues (Lean, Six Sigma, Agile, etc. si pertinent) et des arguments stratégiques.\n" +
+      "    -   `contexte` : Va au-delà de la description du problème. Replace-le dans un contexte stratégique plus large pour l'entreprise (compétitivité, transformation numérique, excellence opérationnelle). Montre que tu comprends les enjeux business derrière la demande technique.\n" +
+      "    -   `demarche` : Ne liste pas seulement des actions. Présente une véritable méthodologie Icam. Structure ton approche, justifie tes choix (pourquoi cette méthode plutôt qu'une autre ?) et mets en avant les bénéfices attendus (efficacité, ROI, pérennité de la solution).\n" +
+      "    -   `phases` : Décompose le projet en phases logiques et séquentielles. Pour chaque phase, définis clairement : l'**objectif**, les **livrables clés** et les **jalons de validation**. Sois concret et crédible. La structure doit inspirer confiance et montrer une maîtrise parfaite du déroulement projet.\n" +
+      "    -   `phrase` : Conclus avec une phrase d'engagement puissante qui n'est pas une simple formule de politesse. Elle doit résumer la valeur ajoutée de l'Icam et ouvrir sur une collaboration fructueuse. Pense impact et partenariat.\n\n" +
+      "## Exemple de Structure Attendue pour la section `phases`\n" +
+      "Phase 1 : Audit & Diagnostic\n" +
+      "*   Objectif : [...] \n" +
+      "*   Livrables : Rapport d'audit, cartographie des flux VSM, recommandations chiffrées.\n" +
+      "Phase 2 : Conception & Développement\n" +
+      "*   Objectif : [...] \n" +
+      "*   Livrables : Spécifications techniques, prototype fonctionnel, plan de déploiement.\n" +
+      "Phase 3 : Déploiement & Suivi\n" +
+      "*   Objectif : [...] \n" +
+      "*   Livrables : Solution déployée, documentation utilisateur, KPIs de performance post-projet.";
+
     var user =
-      "A partir du brief ci-dessous, renvoie un JSON {contexte, demarche, phases, phrase}. Brief:\n\n" +
-      brief;
+      "## Brief du projet\n" +
+      brief +
+      "\n\n" +
+      "## Instruction\n" +
+      "Génère le contenu des quatre sections (`contexte`, `demarche`, `phases`, `phrase`) en te basant sur le brief ci-dessus et tes connaissances du monde de l'ingénierie et du conseil. Retourne le résultat exclusivement au format JSON.";
 
     // ... dans function generateFullProposal(formData) ...
     var chosenModel = resolveDeepseekModel_(formData && formData.deepseekModel);
