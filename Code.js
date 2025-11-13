@@ -14,6 +14,24 @@ const TEMPLATE_DOC_ID = "1syQF8bOYnU6sGOei8Co3r-BL4Aj-caDl6zKw7GcOT2I";
 const DESTINATION_FOLDER_ID = "1uK3jwE3CSq-wxBMweMVWyARGut0YITdJ";
 const UX_SUPPRESS_COMPANY_AFTER_CONTACT = true;
 
+function safeMoveFileToFolder_(fileId, folderId) {
+  if (!fileId || !folderId) return;
+  try {
+    var folder = DriveApp.getFolderById(folderId);
+    var file = DriveApp.getFileById(fileId);
+    folder.addFile(file);
+    var parents = file.getParents();
+    while (parents.hasNext()) {
+      var parent = parents.next();
+      if (parent.getId() !== folderId) {
+        parent.removeFile(file);
+      }
+    }
+  } catch (err) {
+    Logger.log('⚠️ Impossible de déplacer le fichier %s: %s', fileId, err);
+  }
+}
+
 // Mapping champ -> couleur
 const COLOR_MAPPING = {
   thematique: "#F4CCCC",
@@ -572,6 +590,56 @@ function createTemplateCopy(entrepriseNom) {
   }
 }
 
+function createConsoleTranscriptDocument_(rawContent, sections, formData, model) {
+  if (!rawContent) {
+    return { success: false, error: 'Aucun contenu IA à archiver.' };
+  }
+  try {
+    var folderId = DESTINATION_FOLDER_ID;
+    var ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd_HH-mm');
+    var baseName = [
+      'Console',
+      formData && formData.entrepriseNom ? formData.entrepriseNom : 'Client',
+      ts,
+    ]
+      .join('_')
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    var doc = DocumentApp.create(baseName);
+    var body = doc.getBody();
+    if (body) {
+      body.clear();
+      body.appendParagraph('Transcript brut DeepSeek').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+      var meta = [];
+      if (formData && formData.titre) meta.push('Titre : ' + formData.titre);
+      if (formData && formData.entrepriseNom) meta.push('Entreprise : ' + formData.entrepriseNom);
+      if (formData && formData.thematique) meta.push('Thématique : ' + formData.thematique);
+      meta.push('Modèle IA : ' + (model || 'DeepSeek'));
+      meta.push('Horodatage : ' + ts);
+      body.appendParagraph(meta.join(' · ')).setForegroundColor('#666666');
+      if (sections && typeof sections === 'object') {
+        body.appendParagraph('Sections interprétées').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+        ['contexte', 'demarche', 'phases', 'phrase'].forEach(function (key) {
+          if (!sections[key]) return;
+          body.appendParagraph(key.toUpperCase()).setHeading(DocumentApp.ParagraphHeading.HEADING3);
+          body.appendParagraph(String(sections[key]));
+        });
+      }
+      body.appendParagraph('Réponse JSON brute').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+      var pre = body.appendParagraph(String(rawContent));
+      pre.setFontFamily('Roboto Mono');
+      pre.setFontSize(10);
+    }
+    safeMoveFileToFolder_(doc.getId(), folderId);
+    return {
+      success: true,
+      documentId: doc.getId(),
+      url: 'https://docs.google.com/document/d/' + doc.getId() + '/edit',
+    };
+  } catch (err) {
+    return { success: false, error: String(err && err.message ? err.message : err) };
+  }
+}
+
 function applyUpdatesToDoc_(docId, updates, options) {
   options = options || {};
   var removeAllHighlight = options.removeAllHighlight !== false;
@@ -1017,6 +1085,14 @@ function generateFullProposal(formData) {
       postProcess: finalization.stats,
     };
     if (log && log.url) payload.costLogUrl = log.url;
+
+    var consoleDoc = createConsoleTranscriptDocument_(llm.content, sections, formData, llm.model);
+    if (consoleDoc && consoleDoc.success) {
+      payload.consoleDocUrl = consoleDoc.url;
+      payload.consoleDocId = consoleDoc.documentId;
+    } else if (consoleDoc && consoleDoc.error) {
+      payload.consoleDocError = consoleDoc.error;
+    }
 
     var pdfNameParts = [
       "Proposition",
