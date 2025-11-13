@@ -13,6 +13,11 @@
 const TEMPLATE_DOC_ID = "1syQF8bOYnU6sGOei8Co3r-BL4Aj-caDl6zKw7GcOT2I";
 const DESTINATION_FOLDER_ID = "1uK3jwE3CSq-wxBMweMVWyARGut0YITdJ";
 const UX_SUPPRESS_COMPANY_AFTER_CONTACT = true;
+const PROMPT_VERSION_TAG = "v2024.11"; // FIX: Ajout d'un identifiant de version pour tracer le prompt côté document final.
+const PROMPT_TOKEN_LIMIT = 100000; // FIX: Limite serveur pour bloquer les prompts trop longs avant l'appel DeepSeek.
+const MIN_SECTION_CHAR_LENGTH = 50; // FIX: Longueur minimale exigée par section JSON pour éviter les réponses vides.
+const LLM_MAX_RETRIES = 3; // FIX: Nombre maximal de tentatives pour la stratégie de retry exponentiel DeepSeek.
+const LLM_BACKOFF_BASE_MS = 1000; // FIX: Base en millisecondes pour l'attente exponentielle 1s/2s/4s lors des erreurs réseau.
 
 function safeMoveFileToFolder_(fileId, folderId) {
   if (!fileId || !folderId) return;
@@ -31,6 +36,70 @@ function safeMoveFileToFolder_(fileId, folderId) {
     Logger.log('⚠️ Impossible de déplacer le fichier %s: %s', fileId, err);
   }
 }
+
+function maskApiKeyForLog_(key) { // FIX: Ajout d'un utilitaire pour masquer la clé API dans les journaux Apps Script.
+  if (!key) return "[REDACTED]"; // FIX: Retourne un placeholder si la clé est absente afin d'éviter toute fuite.
+  if (String(key).length <= 8) return "[REDACTED]"; // FIX: Gère aussi les clés trop courtes pour empêcher leur affichage intégral.
+  return String(key).substring(0, 4) + "…[REDACTED]"; // FIX: Ne journalise qu'un préfixe inoffensif suivi d'une mention redacted.
+} // FIX: Fin du masquage de clé API destiné aux logs.
+
+function computeBackoffDelayMs_(attempt) { // FIX: Calcule la durée d'attente exponentielle requise pour les retries DeepSeek.
+  var safeAttempt = Math.max(1, Math.min(attempt, LLM_MAX_RETRIES)); // FIX: Empêche les valeurs hors borne afin de garder 1s/2s/4s.
+  return Math.pow(2, safeAttempt - 1) * LLM_BACKOFF_BASE_MS; // FIX: Produit le délai exponentiel attendu par la stratégie de retry.
+} // FIX: Termine le calculateur de backoff exponentiel.
+
+function enforcePromptLimit_(systemPrompt, userPrompt) { // FIX: Vérifie côté serveur que le prompt reste sous la limite DeepSeek.
+  var approxTokens = tokensApprox((systemPrompt || "").length + (userPrompt || "").length); // FIX: Approxime les tokens pour anticiper un dépassement API.
+  if (approxTokens > PROMPT_TOKEN_LIMIT) { // FIX: Détecte les prompts trop volumineux avant l'appel DeepSeek.
+    return { allowed: false, tokens: approxTokens, error: "Brief trop long (~" + approxTokens + " tokens). Réduisez le prompt." }; // FIX: Remonte une erreur explicite réutilisable côté UI.
+  } // FIX: Fin de la clause de blocage pour les prompts excessifs.
+  return { allowed: true, tokens: approxTokens }; // FIX: Retourne l'autorisation ainsi que l'estimation en tokens.
+} // FIX: Termine le garde-fou de taille de prompt serveur.
+
+function validateDeepSeekSections_(rawSections) { // FIX: Ajoute une validation stricte des sections JSON attendues.
+  if (!rawSections || typeof rawSections !== "object") { // FIX: Refuse toute réponse qui n'est pas un objet JSON exploitable.
+    var typeErr = new Error("Réponse DeepSeek invalide: objet JSON attendu."); // FIX: Crée une erreur explicite pour guider l'utilisateur.
+    typeErr.code = "INVALID_SECTIONS"; // FIX: Fournit un code exploitable par le front pour contextualiser l'erreur.
+    throw typeErr; // FIX: Stoppe le flux si la structure de base n'est pas correcte.
+  } // FIX: Fin de la vérification du type de l'objet JSON.
+  var required = ["contexte", "demarche", "phases", "phrase"]; // FIX: Liste des sections obligatoires demandées par le cahier des charges.
+  var normalized = {}; // FIX: Prépare un objet nettoyé pour éviter les falsy inattendus.
+  required.forEach(function (field) { // FIX: Boucle sur chaque section afin d'assurer une validation uniforme.
+    var value = rawSections[field]; // FIX: Récupère la valeur brute renvoyée par l'IA.
+    if (typeof value !== "string") { // FIX: Vérifie que chaque section soit textuelle.
+      var missingErr = new Error("Section manquante ou mal typée: " + field + "."); // FIX: Prépare un message ciblé lorsque la section est absente.
+      missingErr.code = "INVALID_SECTIONS"; // FIX: Associe le même code d'erreur pour faciliter le traitement client.
+      throw missingErr; // FIX: Interrompt la génération si une section ne respecte pas le format attendu.
+    } // FIX: Fin du contrôle de type string sur la section.
+    var trimmed = value.trim(); // FIX: Nettoie les espaces parasites afin de mesurer une longueur pertinente.
+    if (trimmed.length < MIN_SECTION_CHAR_LENGTH) { // FIX: Applique le seuil de contenu minimal pour éviter les réponses creuses.
+      var shortErr = new Error("Section " + field + " trop courte (<" + MIN_SECTION_CHAR_LENGTH + " caractères)."); // FIX: Informe précisément l'utilisateur du champ insuffisant.
+      shortErr.code = "INVALID_SECTIONS"; // FIX: Garde la cohérence des codes d'erreur pour ces validations.
+      throw shortErr; // FIX: Bloque la génération tant que le contenu n'est pas suffisamment étoffé.
+    } // FIX: Fin du contrôle de longueur minimale.
+    normalized[field] = trimmed; // FIX: Enregistre la version nettoyée pour l'injection dans le template.
+  }); // FIX: Termine la boucle de validation des sections.
+  return normalized; // FIX: Retourne des sections sûres pour la suite du workflow.
+} // FIX: Clôture de la validation structurée du JSON DeepSeek.
+
+function appendGenerationMetadata_(docId, metadata) { // FIX: Ajoute une trace du modèle et de la version de prompt dans le document final.
+  try { // FIX: Utilise un bloc try/catch pour ne pas bloquer la génération si l'ajout échoue.
+    var doc = DocumentApp.openById(docId); // FIX: Récupère le document cible afin d'insérer la métadonnée.
+    var footer = doc.getFooter(); // FIX: Préfère insérer les informations en pied de page.
+    if (!footer && doc.addFooter) footer = doc.addFooter(); // FIX: Crée un footer si le template n'en fournit pas.
+    var target = footer || doc.getBody(); // FIX: Fallback vers le corps si un footer reste indisponible.
+    var stamp = Utilities.formatDate(metadata.generatedAt || new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm"); // FIX: Formate la date de génération pour audit.
+    var line = "Généré avec " + (metadata.model || "DeepSeek") + " · " + stamp + " · Prompt " + (metadata.promptVersion || "—"); // FIX: Compose la chaîne lisible réclamée par les consignes.
+    var para = target.appendParagraph(line); // FIX: Insère le texte dans le document final.
+    para.setForegroundColor("#666666"); // FIX: Rend la mention discrète mais lisible.
+    para.setFontSize(8); // FIX: Réduit la taille pour ne pas gêner la lecture de la propale.
+    doc.saveAndClose(); // FIX: Sauvegarde le document après insertion.
+    return { success: true, text: line }; // FIX: Retourne le statut pour traçage côté appelant.
+  } catch (err) { // FIX: Capture toute erreur d'accès DocumentApp.
+    Logger.log("⚠️ Impossible d'ajouter la métadonnée de génération: %s", err); // FIX: Journalise l'incident sans divulguer d'informations sensibles.
+    return { success: false, error: String(err) }; // FIX: Signale l'échec à l'appelant pour diagnostic.
+  } // FIX: Termine le bloc try/catch d'ajout de métadonnée.
+} // FIX: Fin de l'utilitaire d'annotation des documents générés.
 
 // Mapping champ -> couleur
 const COLOR_MAPPING = {
@@ -428,56 +497,90 @@ function callLLM_(provider, prompt, systemPrompt, temperature, options) {
     muteHttpExceptions: true,
   };
 
-  var t0 = Date.now();
-  var resp;
-  try {
-    resp = UrlFetchApp.fetch(DEEPSEEK_BASE_URL, fetchOptions);
-  } catch (err) {
-    return {
-      success: false,
-      error: "Erreur DeepSeek: " + String(err.message || err),
-    };
+  var sanitizedHeadersForLog = { Authorization: "Bearer " + maskApiKeyForLog_(key) }; // FIX: Journalise les en-têtes sans exposer la clé API réelle.
+  Logger.log("🔐 DeepSeek headers (masqués): %s", JSON.stringify(sanitizedHeadersForLog)); // FIX: Trace l'appel en respectant l'instruction de masquage de la clé API.
+
+  var resp = null; // FIX: Prépare la réponse HTTP pour la boucle de retry.
+  var latencyMs = 0; // FIX: Stocke la latence finale du dernier appel réussi.
+  var callStartedAt = Date.now(); // FIX: Point de départ pour mesurer la latence multi-tentatives.
+
+  for (var attempt = 1; attempt <= LLM_MAX_RETRIES; attempt++) { // FIX: Implémente la stratégie de retry exponentiel demandée.
+    Logger.log("🔁 Tentative DeepSeek %s/%s", attempt, LLM_MAX_RETRIES); // FIX: Journalise chaque tentative pour faciliter le diagnostic réseau.
+    try {
+      resp = UrlFetchApp.fetch(DEEPSEEK_BASE_URL, fetchOptions); // FIX: Exécute la requête DeepSeek avec reprise possible.
+    } catch (err) {
+      Logger.log("⚠️ Tentative DeepSeek échouée (exception): %s", err); // FIX: Trace immédiatement les erreurs réseau ou DNS.
+      if (attempt < LLM_MAX_RETRIES) { // FIX: On ne bloque pas tant qu'il reste des tentatives disponibles.
+        var waitForNetwork = computeBackoffDelayMs_(attempt); // FIX: Calcule l'attente exponentielle entre les essais.
+        Utilities.sleep(waitForNetwork); // FIX: Applique le backoff demandé (1s/2s/4s).
+        continue; // FIX: Passe à la tentative suivante après la pause.
+      }
+      return { success: false, error: "DeepSeek injoignable: " + String(err), code: "NETWORK" }; // FIX: Remonte une erreur claire lorsque toutes les tentatives réseau échouent.
+    }
+
+    var status = resp.getResponseCode(); // FIX: Capture le code HTTP pour décider d'un retry ou d'un message spécifique.
+    var body = resp.getContentText(); // FIX: Stocke le corps brut pour l'analyse JSON ou l'affichage d'erreur.
+
+    if (status >= 200 && status < 300) { // FIX: Succès HTTP, fin de la boucle de retry.
+      latencyMs = Date.now() - callStartedAt; // FIX: Calcule la latence cumulée réelle de l'appel final.
+      var json; // FIX: Prépare la variable qui recevra la réponse JSON parsée.
+      try {
+        json = JSON.parse(body); // FIX: Parse la réponse DeepSeek maintenant que le statut est OK.
+      } catch (err) {
+        return { success: false, error: "Réponse DeepSeek invalide: " + String(err.message || err), code: "INVALID_RESPONSE" }; // FIX: Intercepte les JSON mal formés pour éviter de casser le flux.
+      }
+
+      var content =
+        (json.choices &&
+          json.choices[0] &&
+          json.choices[0].message &&
+          json.choices[0].message.content) ||
+        "";
+      if (!content) {
+        return { success: false, error: "Reponse DeepSeek vide.", code: "EMPTY_CONTENT" }; // FIX: Détecte explicitement les réponses sans texte utile.
+      }
+
+      var usage = json.usage || {}; // FIX: Préserve le calcul du coût sur la réponse réussie.
+      var cost = calculateUsageCost_(usage, model); // FIX: Conserve la logique tarifaire existante sur le nouveau flux.
+
+      return {
+        success: true,
+        content: content,
+        raw: json,
+        usage: usage,
+        cost: cost,
+        model: model,
+        latencyMs: latencyMs,
+      };
+    }
+
+    var shouldRetry = status === 429 || status === 500 || status === 502 || status === 503; // FIX: Détermine quels codes méritent un retry automatique.
+    if (shouldRetry && attempt < LLM_MAX_RETRIES) { // FIX: N'attend qu'en cas d'erreur transitoire avec tentatives restantes.
+      var waitForStatus = computeBackoffDelayMs_(attempt); // FIX: Calcule la pause avant la prochaine tentative.
+      Logger.log("⏳ DeepSeek HTTP %s, nouvelle tentative dans %sms", status, waitForStatus); // FIX: Rend visible le comportement du backoff dans les logs Apps Script.
+      Utilities.sleep(waitForStatus); // FIX: Applique effectivement le délai exponentiel pour éviter le rate limiting.
+      continue; // FIX: Essaie à nouveau après la pause si les conditions le permettent.
+    }
+
+    var friendlyMessage = "DeepSeek HTTP " + status + ": " + body; // FIX: Prépare un message par défaut si aucun cas spécial n'est détecté.
+    var errorCode = "HTTP_ERROR"; // FIX: Associe un code d'erreur générique pour les analyses côté UI.
+    var retryAfterMs = 0; // FIX: Permet de transmettre un délai conseillé aux utilisateurs.
+    if (status === 429) { // FIX: Cas quota dépassé/rate limiting DeepSeek.
+      friendlyMessage = "Quota DeepSeek dépassé. Réessayez dans 1 minute."; // FIX: Message utilisateur explicite demandé.
+      errorCode = "RATE_LIMIT"; // FIX: Facilite le traitement côté interface pour afficher un bouton de retry adapté.
+      retryAfterMs = 60000; // FIX: Suggestion d'attente d'une minute en cohérence avec les instructions.
+    } else if (status === 402) { // FIX: Cas quota de paiement DeepSeek épuisé.
+      friendlyMessage = "Crédits DeepSeek insuffisants (402)."; // FIX: Indique clairement le dépassement de budget/quota.
+      errorCode = "PAYMENT_REQUIRED"; // FIX: Permet d'identifier l'action corrective côté utilisateur.
+    } else if (status === 503 || status === 500 || status === 502) { // FIX: Cas de panne ou indisponibilité serveur DeepSeek.
+      friendlyMessage = "DeepSeek indisponible. Merci de réessayer ultérieurement."; // FIX: Message orienté fallback pour informer l'utilisateur.
+      errorCode = "OFFLINE"; // FIX: Drapeau pour activer le mode retry côté UI.
+      retryAfterMs = computeBackoffDelayMs_(attempt); // FIX: Recommande un délai identique au backoff appliqué.
+    }
+    return { success: false, error: friendlyMessage, code: errorCode, status: status, retryAfterMs: retryAfterMs, body: body }; // FIX: Remonte un objet riche en métadonnées d'erreur vers le front.
   }
-  var latencyMs = Date.now() - t0;
 
-  var status = resp.getResponseCode();
-  var body = resp.getContentText();
-  if (status < 200 || status >= 300) {
-    return { success: false, error: "DeepSeek HTTP " + status + ": " + body };
-  }
-
-  var json;
-  try {
-    json = JSON.parse(body);
-  } catch (err) {
-    return {
-      success: false,
-      error: "Reponse DeepSeek invalide: " + String(err.message || err),
-    };
-  }
-
-  var content =
-    (json.choices &&
-      json.choices[0] &&
-      json.choices[0].message &&
-      json.choices[0].message.content) ||
-    "";
-  if (!content) {
-    return { success: false, error: "Reponse DeepSeek vide." };
-  }
-
-  var usage = json.usage || {};
-  var cost = calculateUsageCost_(usage, model);
-
-  return {
-    success: true,
-    content: content,
-    raw: json,
-    usage: usage,
-    cost: cost,
-    model: model,
-    latencyMs: latencyMs,
-  };
+  return { success: false, error: "DeepSeek injoignable malgré retries.", code: "NETWORK" }; // FIX: Garde un garde-fou si, par sécurité, la boucle sort sans retour.
 }
 
 function callDeepSeek(payload) {
@@ -994,6 +1097,11 @@ function generateFullProposal(formData) {
       "## Instruction\n" +
       "Génère le contenu des quatre sections (`contexte`, `demarche`, `phases`, `phrase`) en te basant sur le brief ci-dessus et tes connaissances du monde de l'ingénierie et du conseil. Retourne le résultat exclusivement au format JSON.";
 
+    var promptGuard = enforcePromptLimit_(sys, user); // FIX: Applique la limite haute DeepSeek avant d'appeler le LLM.
+    if (!promptGuard.allowed) { // FIX: Bloque immédiatement si plus de 100k tokens sont estimés.
+      return { success: false, error: promptGuard.error, code: "PROMPT_TOO_LARGE", promptTokens: promptGuard.tokens }; // FIX: Retourne un message exploitable côté UI avec le nombre de tokens estimé.
+    } // FIX: Fin de la surveillance de taille de prompt côté serveur.
+
     // ... dans function generateFullProposal(formData) ...
     var chosenModel = resolveDeepseekModel_(formData && formData.deepseekModel);
 
@@ -1037,15 +1145,16 @@ function generateFullProposal(formData) {
         : Date.now() - generationStartedAt;
     llm.latencyMs = measuredLatency;
 
-    var sections;
+    var sections; // FIX: Variable destinée à contenir les sections DeepSeek validées.
     try {
-      sections = JSON.parse(llm.content);
+      sections = validateDeepSeekSections_(JSON.parse(llm.content)); // FIX: Applique la validation de structure et de contenu minimal.
     } catch (e) {
       return {
         success: false,
-        error: "La reponse IA nest pas un JSON valide: " + e.message,
-      };
-    }
+        error: e.message || "La réponse IA est invalide.", // FIX: Expose un message explicite lorsqu'une section manque ou est trop courte.
+        code: e.code || "INVALID_SECTIONS", // FIX: Transmet un code d'erreur exploitable côté interface pour guider l'utilisateur.
+      }; // FIX: Arrête la génération tant que les sections DeepSeek ne sont pas conformes.
+    } // FIX: Fin du bloc de validation JSON retourné par DeepSeek.
 
     var copy = createTemplateCopy(formData.entrepriseNom);
     if (!copy.success) return copy;
@@ -1061,6 +1170,11 @@ function generateFullProposal(formData) {
       removeAllHighlight: true,
     });
     if (!u.success) return { success: false, error: u.error, url: copy.url };
+
+    var metadataInfo = appendGenerationMetadata_(copy.documentId, { model: llm.model, promptVersion: PROMPT_VERSION_TAG, generatedAt: new Date() }); // FIX: Ajoute un pied de page indiquant le modèle utilisé et la version du prompt.
+    if (!metadataInfo.success) { // FIX: Trace les incidents d'annotation sans bloquer la livraison.
+      Logger.log("⚠️ Impossible d'ajouter la note de modèle: %s", metadataInfo.error); // FIX: Informe l'opérateur en cas d'échec d'écriture de la métadonnée.
+    } // FIX: Termine la gestion tolérante aux erreurs sur l'ajout de métadonnées.
 
     var finalization = finalizeProposalDocument_(copy.documentId);
     if (!finalization.success)
@@ -1084,6 +1198,8 @@ function generateFullProposal(formData) {
       topP: topP,
       postProcess: finalization.stats,
     };
+    payload.promptTokens = promptGuard.tokens; // FIX: Expose l'estimation des tokens côté réponse JSON pour information utilisateur.
+    if (metadataInfo && metadataInfo.success && metadataInfo.text) payload.modelMetadata = metadataInfo.text; // FIX: Ajoute la chaîne de métadonnée afin qu'elle soit visible dans l'interface.
     if (log && log.url) payload.costLogUrl = log.url;
 
     var consoleDoc = createConsoleTranscriptDocument_(llm.content, sections, formData, llm.model);

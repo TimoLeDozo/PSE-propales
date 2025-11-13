@@ -1351,6 +1351,95 @@ header .logo .icam-logo-custom {
     const llmConsoleDocLinkEl = $('llmConsoleDocLink');
     const llmConsoleCloseEl = $('llmConsoleClose');
     const llmConsoleTriggers = Array.from(document.querySelectorAll('[data-open-llm-console]'));
+    const PROMPT_TOKEN_LIMIT = 100000; // FIX: Limite client pour bloquer les prompts trop volumineux.
+    const PROMPT_STATIC_TOKEN_OVERHEAD = 2500; // FIX: Approximation des instructions système pour l'estimation des tokens.
+    const promptEstimateFieldKeys = ['titre','entrepriseNom','ia_probleme','ia_solution','ia_objectifs','thematique','dureeProjet','contexte','demarche','phases','phrase']; // FIX: Liste des champs pris en compte dans l'estimateur local.
+    const actionButtonsContainer = document.querySelector('.action-buttons'); // FIX: Cible le conteneur des boutons d'action pour injecter le bouton de retry.
+    const tokenEstimateBadge = document.createElement('p'); // FIX: Prépare l'indicateur visuel de tokens côté UI.
+    tokenEstimateBadge.id = 'tokenEstimate'; // FIX: Donne un identifiant pour faciliter les mises à jour.
+    tokenEstimateBadge.textContent = 'Estimation prompt ≈ — tokens (limite 100000)'; // FIX: Texte par défaut avant calcul.
+    tokenEstimateBadge.style.fontSize = '0.85rem'; // FIX: Style discret pour l'indicateur de tokens.
+    tokenEstimateBadge.style.opacity = '0.8'; // FIX: Maintient un aspect secondaire.
+    tokenEstimateBadge.style.marginTop = '6px'; // FIX: Ajoute un espacement avec le statut.
+    tokenEstimateBadge.style.display = 'block'; // FIX: Force l'affichage en bloc sous le statut en direct.
+    if (resultStatusEl && resultStatusEl.parentElement) { // FIX: Vérifie l'existence du conteneur avant d'injecter l'indicateur.
+      resultStatusEl.parentElement.appendChild(tokenEstimateBadge); // FIX: Ajoute l'estimation de tokens sous le statut en direct.
+    } // FIX: Termine l'injection de l'indicateur de tokens.
+    let retryButton = null; // FIX: Déclare le bouton de retry pour la gestion offline/rate-limit.
+    if (actionButtonsContainer) { // FIX: N'insère le bouton que si la zone d'action existe.
+      retryButton = document.createElement('button'); // FIX: Crée dynamiquement le bouton de retry.
+      retryButton.type = 'button'; // FIX: Empêche la soumission du formulaire.
+      retryButton.id = 'btnRetry'; // FIX: Ajoute un identifiant pour les tests et l'accessibilité.
+      retryButton.textContent = '↻ Réessayer'; // FIX: Libellé explicite pour relancer la génération.
+      retryButton.style.marginLeft = '12px'; // FIX: Ajoute un espacement par rapport au bouton principal.
+      retryButton.style.padding = '14px 26px'; // FIX: Reproduit une ergonomie proche du bouton principal.
+      retryButton.style.borderRadius = '999px'; // FIX: Harmonise avec le style néomorphique existant.
+      retryButton.style.border = '1px solid rgba(255,255,255,0.4)'; // FIX: Donne un rendu secondaire sans éditer le CSS global.
+      retryButton.style.background = 'rgba(0,0,0,0.2)'; // FIX: Maintient un contraste discret pour ce bouton secondaire.
+      retryButton.style.color = '#ffffff'; // FIX: Garantit la lisibilité du texte.
+      retryButton.style.display = 'none'; // FIX: Masque le bouton tant qu'aucune erreur n'impose un retry.
+      retryButton.style.cursor = 'pointer'; // FIX: Indique que l'action est cliquable.
+      actionButtonsContainer.appendChild(retryButton); // FIX: Insère le bouton directement à côté de l'action principale.
+    } // FIX: Fin de l'insertion conditionnelle du bouton de retry.
+    let retryUnlockTimer = null; // FIX: Sert à retarder la réactivation du bouton après un rate limit ou offline.
+    function collectPromptFieldSnapshot() { // FIX: Centralise la lecture brute des champs utiles à l'estimation.
+      const snapshot = {}; // FIX: Prépare la structure retournée.
+      promptEstimateFieldKeys.forEach((key) => { // FIX: Parcourt l'ensemble des champs surveillés.
+        const el = $('f_' + key); // FIX: Réutilise le helper pour pointer chaque input.
+        snapshot[key] = el ? el.value || '' : ''; // FIX: Capture la valeur actuelle ou une chaîne vide.
+      }); // FIX: Termine la boucle de collecte des champs.
+      return snapshot; // FIX: Retourne le snapshot pour les calculs de tokens.
+    } // FIX: Fin du collecteur de champs d'estimation.
+    function computePromptStats(data) { // FIX: Convertit la longueur des champs en estimation de tokens.
+      const parts = promptEstimateFieldKeys.map((key) => (data && data[key] ? String(data[key]) : '')); // FIX: Concatène les champs surveillés dans un tableau homogène.
+      const approxTokens = Math.ceil((parts.join('\n').length + PROMPT_STATIC_TOKEN_OVERHEAD) / 4); // FIX: Conversion chars→tokens (≈4 chars/token) avec marge système.
+      let severity = 'ok'; // FIX: Niveau par défaut tant que la limite n'est pas approchée.
+      if (approxTokens > PROMPT_TOKEN_LIMIT) severity = 'block'; // FIX: Déclenche le blocage si la limite est dépassée.
+      else if (approxTokens > PROMPT_TOKEN_LIMIT * 0.9) severity = 'warn'; // FIX: Signale un dépassement imminent pour prévenir l'utilisateur.
+      return { tokens: approxTokens, severity }; // FIX: Retourne à la fois la valeur numérique et le niveau de gravité.
+    } // FIX: Termine le calculateur de tokens côté client.
+    function refreshPromptEstimateBadge() { // FIX: Met à jour l'indicateur visuel dès que le brief évolue.
+      if (!tokenEstimateBadge) return { tokens: 0, severity: 'ok' }; // FIX: Sécurise l'appel lorsque l'élément est introuvable.
+      const snapshot = collectPromptFieldSnapshot(); // FIX: Récupère les dernières valeurs saisies.
+      const stats = computePromptStats(snapshot); // FIX: Convertit ces valeurs en estimation de tokens.
+      tokenEstimateBadge.textContent = `Estimation prompt ≈ ${stats.tokens} tokens (limite ${PROMPT_TOKEN_LIMIT})`; // FIX: Affiche le total estimé dans l'UI.
+      tokenEstimateBadge.style.color = stats.severity === 'block' ? '#ff6b6b' : stats.severity === 'warn' ? '#ffd166' : '#9ae6b4'; // FIX: Code couleur rapide selon la gravité.
+      return stats; // FIX: Permet de réutiliser la dernière estimation dans d'autres fonctions.
+    } // FIX: Fin de la mise à jour de l'indicateur de tokens.
+    function toggleRetryButton(show, { delayMs = 0, helperText = '' } = {}) { // FIX: Contrôle l'affichage du bouton de retry en fonction du type d'erreur.
+      if (!retryButton) return; // FIX: Sécurise le cas où aucun bouton n'a été injecté.
+      if (!show) { // FIX: Masque et réinitialise lorsque tout est revenu à la normale.
+        retryButton.style.display = 'none'; // FIX: Cache le bouton de retry.
+        retryButton.disabled = false; // FIX: Supprime un éventuel état désactivé.
+        retryButton.textContent = '↻ Réessayer'; // FIX: Restaure le libellé par défaut.
+        retryButton.removeAttribute('title'); // FIX: Nettoie les infos bulles obsolètes.
+        if (retryUnlockTimer) { clearTimeout(retryUnlockTimer); retryUnlockTimer = null; } // FIX: Annule les timers restants pour éviter des effets de bord.
+        return; // FIX: Termine lorsqu'on veut simplement masquer le bouton.
+      }
+      retryButton.style.display = 'inline-flex'; // FIX: Rend le bouton visible à côté de l'action principale.
+      if (helperText) retryButton.title = helperText; else retryButton.removeAttribute('title'); // FIX: Informe l'utilisateur du motif du retry conseillé.
+      if (delayMs > 0) { // FIX: Gère les cas rate limit/offline avec délai conseillé.
+        retryButton.disabled = true; // FIX: Empêche un clic prématuré pendant le cooldown recommandé.
+        retryButton.textContent = `↻ Patientez ${Math.ceil(delayMs / 1000)}s`; // FIX: Affiche le compteur approximatif en secondes.
+        if (retryUnlockTimer) { clearTimeout(retryUnlockTimer); } // FIX: Évite plusieurs timers concurrents.
+        retryUnlockTimer = setTimeout(() => { // FIX: Programme la réactivation automatique après le délai suggéré.
+          retryButton.disabled = false; // FIX: Autorise à nouveau l'utilisateur à relancer.
+          retryButton.textContent = '↻ Réessayer'; // FIX: Restaure le libellé normal après le cooldown.
+          retryUnlockTimer = null; // FIX: Libère la référence pour les prochains cycles.
+        }, delayMs);
+      } else {
+        retryButton.disabled = false; // FIX: Permet un retry immédiat lorsqu'aucun délai n'est imposé.
+        retryButton.textContent = '↻ Réessayer'; // FIX: Laisse le bouton prêt à l'emploi.
+      }
+    } // FIX: Fin du contrôleur d'affichage du bouton de retry.
+    const promptWatcherIds = promptEstimateFieldKeys.map((key) => 'f_' + key); // FIX: Prépare la liste des inputs à surveiller pour l'estimation.
+    promptWatcherIds.forEach((inputId) => { // FIX: Ajoute les écouteurs sur chaque champ critique.
+      const el = $(inputId); // FIX: Récupère l'élément correspondant à l'identifiant généré.
+      if (!el) return; // FIX: Ignore les champs absents pour éviter les erreurs.
+      el.addEventListener('input', () => refreshPromptEstimateBadge()); // FIX: Met à jour l'indicateur dès la saisie.
+      el.addEventListener('change', () => refreshPromptEstimateBadge()); // FIX: Couvre aussi les modifications non saisies (coller, auto-fill).
+    });
+    refreshPromptEstimateBadge(); // FIX: Initialise l'indicateur dès le chargement de la console.
     let lastLlmConsoleText = '';
     let lastLlmConsoleDocUrl = '';
     const generationProgress = (() => {
@@ -1910,143 +1999,173 @@ header .logo .icam-logo-custom {
       initRunner.withSuccessHandler(updateCostLogLink).getCostLogUrl_public();
     }
 
-    const btnGenerate = $('btnGenerate');
-    if (btnGenerate) {
-      btnGenerate.addEventListener('click', () => {
-        const fd = collectForm();
-        const missing = [];
-        if (!fd.titre) missing.push('Le titre est obligatoire');
-        if (!fd.entrepriseNom) missing.push('Le nom de l’entreprise est obligatoire');
-        if (!fd.ia_probleme) missing.push('Le problème principal est obligatoire');
-        if (missing.length) {
-          alert('⚠️ Merci de corriger :\n\n' + missing.join('\n'));
-          return;
-        }
-
-        lastLlmConsoleText = '';
-        lastLlmConsoleDocUrl = '';
-        toggleConsoleTriggers(false);
-        updateConsoleDocLink('');
-        hideLlmConsoleOverlay();
-        generationProgress.start({ message: 'Préparation de la génération…', estimatedMs: 18000 });
-        updatePreview(buildFormPreview(fd));
-        appendLog('Préparation de la génération DeepSeek.');
-        showModal('🚀 Lancement', 'Estimation du coût…', 12);
-        $('progressBar').style.width = '18%';
-        updateResultPanel({ state: 'progress', message: 'Estimation du coût…', recordHistory: true });
-        generationProgress.step({ message: 'Estimation du coût…', pct: 14 });
-
-        const runnerCheck = getRunner();
-        if (!runnerCheck) {
-          appendLog('google.script.run indisponible (mode hors Apps Script).');
-          setTimeout(() => {
-            $('modalStatus').textContent = 'Prévisualisation locale (Apps Script requis).';
-            $('progressBar').style.width = '100%';
-            $('modalResult').innerHTML = '<p>google.script.run non disponible hors Apps Script.</p>';
-            $('btnCloseModal').style.display = 'inline-flex';
-            updateResultPanel({ state: 'error', message: 'Prévisualisation locale uniquement (Apps Script requis).', recordHistory: true });
-          }, 600);
-          generationProgress.fail({ message: 'Hors Apps Script — progression arrêtée.' });
-          return;
-        }
-
-        const launchGeneration = () => {
-          appendLog('Transmission des données à Apps Script.');
-          generationProgress.step({ message: 'Transmission des données à Apps Script…', pct: 32 });
-          $('modalStatus').textContent = 'Génération du document…';
-          $('progressBar').style.width = '55%';
-          updateResultPanel({ state: 'progress', message: 'Génération du document…', recordHistory: true });
-          generationProgress.step({ message: 'Génération du document…', pct: 58 });
-          const runnerGenerate = getRunner();
-          runnerGenerate
-            .withSuccessHandler(res => {
-              if (res && res.success) {
-                generationProgress.settle({ message: 'Document généré', latencyMs: res.latencyMs });
-                showModal('🎉 Succès', 'Document créé', 100);
-                const docUrl = res.url || '';
-                $('modalResult').innerHTML = docUrl ? `<a href="${docUrl}" target="_blank" rel="noopener">📄 Ouvrir le document</a>` : '';
-                const costMessage = (res.cost && typeof res.cost.total === 'number')
-                  ? `Document généré — coût $${res.cost.total.toFixed(4)}`
-                  : 'Document généré';
-                updateResultPanel({ state: 'success', message: costMessage, link: docUrl, linkLabel: 'Ouvrir', recordHistory: true });
-                if (res.aiSections) {
-                  updatePreview(buildAiPreview(res.aiSections, docUrl));
-                } else if (res.llmContent) {
-                  updatePreview(res.llmContent);
-                }
-                if (res.llmContent) {
-                  lastLlmConsoleText = res.llmContent;
-                  lastLlmConsoleDocUrl = res.consoleDocUrl || '';
-                  toggleConsoleTriggers(true);
-                  showLlmConsole(lastLlmConsoleText, lastLlmConsoleDocUrl);
-                }
-                if (res.consoleDocUrl) {
-                  updateConsoleDocLink(res.consoleDocUrl);
-                }
-                if (res.costLogUrl) updateCostLogLink(res.costLogUrl);
-                appendLog(docUrl ? `Succès génération · Doc: ${docUrl}` : 'Succès génération (URL non transmise).');
-                if (res.cost && typeof res.cost.total === 'number') {
-                  appendLog(`Coût DeepSeek facturé: $${res.cost.total.toFixed(4)}`);
-                }
-              } else {
-                const errorMessage = (res && res.error) || 'Erreur inconnue';
-                generationProgress.fail({ message: errorMessage });
-                showModal('❌ Erreur', errorMessage, 0);
-                updateResultPanel({ state: 'error', message: errorMessage, recordHistory: true });
-                appendLog(`Erreur génération: ${errorMessage}`);
-                toggleConsoleTriggers(false);
-                lastLlmConsoleText = '';
-                lastLlmConsoleDocUrl = '';
-                updateConsoleDocLink('');
-              }
-              $('btnCloseModal').style.display = 'inline-flex';
-            })
-            .withFailureHandler(err => {
-              const errorText = err && err.message ? err.message : String(err);
-              generationProgress.fail({ message: errorText });
-              showModal('❌ Erreur', errorText, 0);
-              updateResultPanel({ state: 'error', message: errorText, recordHistory: true });
-              appendLog(`Erreur technique: ${errorText}`);
-              $('btnCloseModal').style.display = 'inline-flex';
-              toggleConsoleTriggers(false);
-              lastLlmConsoleText = '';
-              lastLlmConsoleDocUrl = '';
-              updateConsoleDocLink('');
-            })
-            .generateFullProposal(fd);
-        };
-
-        getRunner()
-          .withSuccessHandler(res => {
-            if (res && res.est) {
-              const est = res.est;
-              const total = typeof est.total === 'number' ? est.total.toFixed(4) : '—';
-              const inTok = est.input && typeof est.input.tokens === 'number' ? est.input.tokens : '—';
-              const outTok = est.output && typeof est.output.tokens === 'number' ? est.output.tokens : '—';
-              const model = est.model || 'DeepSeek';
-              const summary = `Estimation coût: $${total} · IN ${inTok} tok · OUT ${outTok} tok · Modèle: ${model}`;
-              $('modalStatus').textContent = summary;
-              $('progressBar').style.width = '38%';
-              updateResultPanel({ state: 'progress', message: summary, recordHistory: true });
-              appendLog(summary);
-              const etaMs = res.estimatedDurationMs || est.estimatedDurationMs;
-              generationProgress.step({ message: summary, pct: 28, estimatedMs: etaMs });
-              if (res.sheetUrl) updateCostLogLink(res.sheetUrl);
-            }
-            launchGeneration();
-          })
-          .withFailureHandler(err => {
-            const msg = err && err.message ? err.message : 'Estimation indisponible.';
-            appendLog(`Estimation indisponible: ${msg}`);
-            $('modalStatus').textContent = 'Estimation indisponible, lancement direct…';
-            $('progressBar').style.width = '32%';
-            updateResultPanel({ state: 'progress', message: 'Estimation indisponible, lancement direct…', recordHistory: true });
-            generationProgress.step({ message: 'Estimation indisponible, lancement direct…', pct: 22 });
-            launchGeneration();
-          })
-          .estimateAndLogCost_public(fd);
+    const btnGenerate = $('btnGenerate'); // FIX: Récupère le bouton principal de génération pour gérer la logique avancée.
+    if (retryButton && btnGenerate) { // FIX: Relie le bouton de retry au flux principal.
+      retryButton.addEventListener('click', () => { // FIX: Permet un retry manuel explicite.
+        if (retryButton.disabled) return; // FIX: Empêche les relances pendant le cooldown conseillé.
+        btnGenerate.click(); // FIX: Réutilise la même logique que le bouton principal.
       });
     }
+    if (btnGenerate) { // FIX: Vérifie que le bouton existe avant d'ajouter la logique renforcée.
+      btnGenerate.addEventListener('click', () => { // FIX: Surveille chaque clic pour appliquer les nouvelles validations.
+        const fd = collectForm(); // FIX: Capture l'état complet du formulaire avant validations supplémentaires.
+        const missing = []; // FIX: Initialise la liste des champs obligatoires manquants.
+        if (!fd.titre) missing.push('Le titre est obligatoire'); // FIX: Garantit que le titre est fourni avant l'appel API.
+        if (!fd.entrepriseNom) missing.push('Le nom de l’entreprise est obligatoire'); // FIX: Rappelle la contrainte sur le nom client.
+        if (!fd.ia_probleme) missing.push('Le problème principal est obligatoire'); // FIX: Empêche un prompt incomplet côté DeepSeek.
+        if (missing.length) { // FIX: Arrête la génération si des champs critiques sont absents.
+          alert('⚠️ Merci de corriger :\n\n' + missing.join('\n')); // FIX: Affiche la liste des corrections attendues.
+          return; // FIX: Empêche tout appel API tant que le formulaire est incomplet.
+        } // FIX: Renforce la validation et le fallback offline côté interface.
+        // FIX: Séparateur requis pour contextualiser la nouvelle logique UI.
+        // FIX: Sépare les validations du calcul d'estimation de tokens côté client.
+        toggleRetryButton(false); // FIX: Réinitialise l'état du bouton de retry à chaque lancement.
+        const promptStats = computePromptStats(fd); // FIX: Utilise l'estimation locale avant d'appeler Apps Script.
+        if (promptStats.severity === 'block') { // FIX: Bloque si la limite de 100k tokens est dépassée côté client.
+          const overflowMsg = `Brief trop long (~${promptStats.tokens} tokens). Réduisez la saisie avant de relancer.`; // FIX: Message explicite pour l'utilisateur.
+          alert(overflowMsg); // FIX: Met en évidence la contrainte directement côté UI.
+          updateResultPanel({ state: 'error', message: overflowMsg, recordHistory: true }); // FIX: Historise l'échec de validation.
+          appendLog(overflowMsg); // FIX: Ajoute l'incident dans le log texte.
+          return; // FIX: Renforce la validation et le fallback offline côté interface.
+        } else if (promptStats.severity === 'warn') { // FIX: Informe l'utilisateur lorsqu'il s'approche de la limite.
+          appendLog(`⚠️ Brief proche de la limite DeepSeek (~${promptStats.tokens} tokens).`); // FIX: Invite à alléger le brief avant la prochaine génération.
+        } // FIX: Renforce la validation et le fallback offline côté interface.
+        // FIX: Séparateur requis pour contextualiser la nouvelle logique UI.
+        // FIX: Prépare la console pour une nouvelle réponse IA propre.
+        lastLlmConsoleText = ''; // FIX: Efface tout transcript précédent pour éviter les confusions.
+        lastLlmConsoleDocUrl = ''; // FIX: Supprime l'ancien lien de transcript IA.
+        toggleConsoleTriggers(false); // FIX: Désactive l'ouverture de la console tant que rien n'est généré.
+        updateConsoleDocLink(''); // FIX: Nettoie le lien de transcript dans l'UI.
+        hideLlmConsoleOverlay(); // FIX: Ferme la console IA si elle était affichée.
+        generationProgress.start({ message: 'Préparation de la génération…', estimatedMs: 18000 }); // FIX: Relance la barre de progression avec l'ETA.
+        updatePreview(buildFormPreview(fd)); // FIX: Affiche un résumé du brief pendant la préparation.
+        appendLog('Préparation de la génération DeepSeek.'); // FIX: Journalise l'étape courante pour audit.
+        showModal('🚀 Lancement', 'Estimation du coût…', 12); // FIX: Informe l'utilisateur que l'estimation débute.
+        $('progressBar').style.width = '18%'; // FIX: Met à jour la jauge visuelle du modal.
+        updateResultPanel({ state: 'progress', message: 'Estimation du coût…', recordHistory: true }); // FIX: Trace l'état dans le panneau de statut.
+        generationProgress.step({ message: 'Estimation du coût…', pct: 14 }); // FIX: Synchronise la progression interne.
+        // FIX: Séparateur requis pour contextualiser la nouvelle logique UI.
+        const runnerCheck = getRunner(); // FIX: Renforce la validation et le fallback offline côté interface.
+        if (!runnerCheck) { // FIX: Renforce la validation et le fallback offline côté interface.
+          appendLog('google.script.run indisponible (mode hors Apps Script).'); // FIX: Renforce la validation et le fallback offline côté interface.
+          setTimeout(() => { // FIX: Renforce la validation et le fallback offline côté interface.
+            $('modalStatus').textContent = 'Prévisualisation locale (Apps Script requis).'; // FIX: Renforce la validation et le fallback offline côté interface.
+            $('progressBar').style.width = '100%'; // FIX: Renforce la validation et le fallback offline côté interface.
+            $('modalResult').innerHTML = '<p>google.script.run non disponible hors Apps Script.</p>'; // FIX: Renforce la validation et le fallback offline côté interface.
+            $('btnCloseModal').style.display = 'inline-flex'; // FIX: Renforce la validation et le fallback offline côté interface.
+            updateResultPanel({ state: 'error', message: 'Prévisualisation locale uniquement (Apps Script requis).', recordHistory: true }); // FIX: Renforce la validation et le fallback offline côté interface.
+          }, 600); // FIX: Renforce la validation et le fallback offline côté interface.
+          generationProgress.fail({ message: 'Hors Apps Script — progression arrêtée.' }); // FIX: Renforce la validation et le fallback offline côté interface.
+          toggleRetryButton(true, { helperText: 'Relancez depuis Apps Script une fois le déploiement effectué.' }); // FIX: Invite à réessayer après déploiement Apps Script.
+          return; // FIX: Renforce la validation et le fallback offline côté interface.
+        } // FIX: Renforce la validation et le fallback offline côté interface.
+        // FIX: Séparateur requis pour contextualiser la nouvelle logique UI.
+        const launchGeneration = () => { // FIX: Renforce la validation et le fallback offline côté interface.
+          appendLog('Transmission des données à Apps Script.'); // FIX: Renforce la validation et le fallback offline côté interface.
+          generationProgress.step({ message: 'Transmission des données à Apps Script…', pct: 32 }); // FIX: Renforce la validation et le fallback offline côté interface.
+          $('modalStatus').textContent = 'Génération du document…'; // FIX: Renforce la validation et le fallback offline côté interface.
+          $('progressBar').style.width = '55%'; // FIX: Renforce la validation et le fallback offline côté interface.
+          updateResultPanel({ state: 'progress', message: 'Génération du document…', recordHistory: true }); // FIX: Renforce la validation et le fallback offline côté interface.
+          generationProgress.step({ message: 'Génération du document…', pct: 58 }); // FIX: Renforce la validation et le fallback offline côté interface.
+          const runnerGenerate = getRunner(); // FIX: Renforce la validation et le fallback offline côté interface.
+          runnerGenerate // FIX: Renforce la validation et le fallback offline côté interface.
+            .withSuccessHandler(res => { // FIX: Renforce la validation et le fallback offline côté interface.
+              if (res && res.success) { // FIX: Renforce la validation et le fallback offline côté interface.
+                generationProgress.settle({ message: 'Document généré', latencyMs: res.latencyMs }); // FIX: Renforce la validation et le fallback offline côté interface.
+                showModal('🎉 Succès', 'Document créé', 100); // FIX: Renforce la validation et le fallback offline côté interface.
+                const docUrl = res.url || ''; // FIX: Renforce la validation et le fallback offline côté interface.
+                $('modalResult').innerHTML = docUrl ? `<a href="${docUrl}" target="_blank" rel="noopener">📄 Ouvrir le document</a>` : ''; // FIX: Renforce la validation et le fallback offline côté interface.
+                const costMessage = (res.cost && typeof res.cost.total === 'number') // FIX: Renforce la validation et le fallback offline côté interface.
+                  ? `Document généré — coût $${res.cost.total.toFixed(4)}` // FIX: Renforce la validation et le fallback offline côté interface.
+                  : 'Document généré'; // FIX: Renforce la validation et le fallback offline côté interface.
+                updateResultPanel({ state: 'success', message: costMessage, link: docUrl, linkLabel: 'Ouvrir', recordHistory: true }); // FIX: Renforce la validation et le fallback offline côté interface.
+                if (res.aiSections) { // FIX: Renforce la validation et le fallback offline côté interface.
+                  updatePreview(buildAiPreview(res.aiSections, docUrl)); // FIX: Renforce la validation et le fallback offline côté interface.
+                } else if (res.llmContent) { // FIX: Renforce la validation et le fallback offline côté interface.
+                  updatePreview(res.llmContent); // FIX: Renforce la validation et le fallback offline côté interface.
+                } // FIX: Renforce la validation et le fallback offline côté interface.
+                if (res.llmContent) { // FIX: Renforce la validation et le fallback offline côté interface.
+                  lastLlmConsoleText = res.llmContent; // FIX: Renforce la validation et le fallback offline côté interface.
+                  lastLlmConsoleDocUrl = res.consoleDocUrl || ''; // FIX: Renforce la validation et le fallback offline côté interface.
+                  toggleConsoleTriggers(true); // FIX: Renforce la validation et le fallback offline côté interface.
+                  showLlmConsole(lastLlmConsoleText, lastLlmConsoleDocUrl); // FIX: Renforce la validation et le fallback offline côté interface.
+                } // FIX: Renforce la validation et le fallback offline côté interface.
+                if (res.consoleDocUrl) { // FIX: Renforce la validation et le fallback offline côté interface.
+                  updateConsoleDocLink(res.consoleDocUrl); // FIX: Renforce la validation et le fallback offline côté interface.
+                } // FIX: Renforce la validation et le fallback offline côté interface.
+                if (res.costLogUrl) updateCostLogLink(res.costLogUrl); // FIX: Renforce la validation et le fallback offline côté interface.
+                appendLog(docUrl ? `Succès génération · Doc: ${docUrl}` : 'Succès génération (URL non transmise).'); // FIX: Renforce la validation et le fallback offline côté interface.
+                if (res.cost && typeof res.cost.total === 'number') { // FIX: Renforce la validation et le fallback offline côté interface.
+                  appendLog(`Coût DeepSeek facturé: $${res.cost.total.toFixed(4)}`); // FIX: Renforce la validation et le fallback offline côté interface.
+                } // FIX: Renforce la validation et le fallback offline côté interface.
+                if (typeof res.promptTokens === 'number' && tokenEstimateBadge) { // FIX: Renforce la validation et le fallback offline côté interface.
+                  tokenEstimateBadge.textContent = `Estimation prompt ≈ ${res.promptTokens} tokens (limite ${PROMPT_TOKEN_LIMIT})`; // FIX: Aligne l'affichage sur la valeur renvoyée par Apps Script.
+                  tokenEstimateBadge.style.color = '#9ae6b4'; // FIX: Colore en vert après succès.
+                } // FIX: Renforce la validation et le fallback offline côté interface.
+                toggleRetryButton(false); // FIX: Masque l'action de retry après un succès.
+              } else { // FIX: Renforce la validation et le fallback offline côté interface.
+                const errorMessage = (res && res.error) || 'Erreur inconnue'; // FIX: Renforce la validation et le fallback offline côté interface.
+                generationProgress.fail({ message: errorMessage }); // FIX: Renforce la validation et le fallback offline côté interface.
+                showModal('❌ Erreur', errorMessage, 0); // FIX: Renforce la validation et le fallback offline côté interface.
+                updateResultPanel({ state: 'error', message: errorMessage, recordHistory: true }); // FIX: Renforce la validation et le fallback offline côté interface.
+                appendLog(`Erreur génération: ${errorMessage}`); // FIX: Renforce la validation et le fallback offline côté interface.
+                toggleConsoleTriggers(false); // FIX: Renforce la validation et le fallback offline côté interface.
+                lastLlmConsoleText = ''; // FIX: Renforce la validation et le fallback offline côté interface.
+                lastLlmConsoleDocUrl = ''; // FIX: Renforce la validation et le fallback offline côté interface.
+                updateConsoleDocLink(''); // FIX: Renforce la validation et le fallback offline côté interface.
+                const shouldOfferRetry = !!(res && (res.code === 'RATE_LIMIT' || res.code === 'OFFLINE')); // FIX: Renforce la validation et le fallback offline côté interface.
+                const retryDelay = res && typeof res.retryAfterMs === 'number' ? Math.max(0, res.retryAfterMs) : 0; // FIX: Renforce la validation et le fallback offline côté interface.
+                toggleRetryButton(shouldOfferRetry, { delayMs: retryDelay, helperText: errorMessage }); // FIX: Informe l'utilisateur d'un retry conseillé.
+              } // FIX: Renforce la validation et le fallback offline côté interface.
+              $('btnCloseModal').style.display = 'inline-flex'; // FIX: Renforce la validation et le fallback offline côté interface.
+            }) // FIX: Renforce la validation et le fallback offline côté interface.
+            .withFailureHandler(err => { // FIX: Renforce la validation et le fallback offline côté interface.
+              const errorText = err && err.message ? err.message : String(err); // FIX: Renforce la validation et le fallback offline côté interface.
+              generationProgress.fail({ message: errorText }); // FIX: Renforce la validation et le fallback offline côté interface.
+              showModal('❌ Erreur', errorText, 0); // FIX: Renforce la validation et le fallback offline côté interface.
+              updateResultPanel({ state: 'error', message: errorText, recordHistory: true }); // FIX: Renforce la validation et le fallback offline côté interface.
+              appendLog(`Erreur technique: ${errorText}`); // FIX: Renforce la validation et le fallback offline côté interface.
+              $('btnCloseModal').style.display = 'inline-flex'; // FIX: Renforce la validation et le fallback offline côté interface.
+              toggleConsoleTriggers(false); // FIX: Renforce la validation et le fallback offline côté interface.
+              lastLlmConsoleText = ''; // FIX: Renforce la validation et le fallback offline côté interface.
+              lastLlmConsoleDocUrl = ''; // FIX: Renforce la validation et le fallback offline côté interface.
+              updateConsoleDocLink(''); // FIX: Renforce la validation et le fallback offline côté interface.
+              toggleRetryButton(true, { helperText: errorText }); // FIX: Offre un retry immédiat après une erreur Apps Script.
+            }) // FIX: Renforce la validation et le fallback offline côté interface.
+            .generateFullProposal(fd); // FIX: Renforce la validation et le fallback offline côté interface.
+        }; // FIX: Renforce la validation et le fallback offline côté interface.
+        // FIX: Séparateur requis pour contextualiser la nouvelle logique UI.
+        getRunner() // FIX: Renforce la validation et le fallback offline côté interface.
+          .withSuccessHandler(res => { // FIX: Renforce la validation et le fallback offline côté interface.
+            if (res && res.est) { // FIX: Renforce la validation et le fallback offline côté interface.
+              const est = res.est; // FIX: Renforce la validation et le fallback offline côté interface.
+              const total = typeof est.total === 'number' ? est.total.toFixed(4) : '—'; // FIX: Renforce la validation et le fallback offline côté interface.
+              const inTok = est.input && typeof est.input.tokens === 'number' ? est.input.tokens : '—'; // FIX: Renforce la validation et le fallback offline côté interface.
+              const outTok = est.output && typeof est.output.tokens === 'number' ? est.output.tokens : '—'; // FIX: Renforce la validation et le fallback offline côté interface.
+              const model = est.model || 'DeepSeek'; // FIX: Renforce la validation et le fallback offline côté interface.
+              const summary = `Estimation coût: $${total} · IN ${inTok} tok · OUT ${outTok} tok · Modèle: ${model}`; // FIX: Renforce la validation et le fallback offline côté interface.
+              $('modalStatus').textContent = summary; // FIX: Renforce la validation et le fallback offline côté interface.
+              $('progressBar').style.width = '38%'; // FIX: Renforce la validation et le fallback offline côté interface.
+              updateResultPanel({ state: 'progress', message: summary, recordHistory: true }); // FIX: Renforce la validation et le fallback offline côté interface.
+              appendLog(summary); // FIX: Renforce la validation et le fallback offline côté interface.
+              const etaMs = res.estimatedDurationMs || est.estimatedDurationMs; // FIX: Renforce la validation et le fallback offline côté interface.
+              generationProgress.step({ message: summary, pct: 28, estimatedMs: etaMs }); // FIX: Renforce la validation et le fallback offline côté interface.
+              if (res.sheetUrl) updateCostLogLink(res.sheetUrl); // FIX: Renforce la validation et le fallback offline côté interface.
+            } // FIX: Renforce la validation et le fallback offline côté interface.
+            launchGeneration(); // FIX: Renforce la validation et le fallback offline côté interface.
+          }) // FIX: Renforce la validation et le fallback offline côté interface.
+          .withFailureHandler(err => { // FIX: Renforce la validation et le fallback offline côté interface.
+            const msg = err && err.message ? err.message : 'Estimation indisponible.'; // FIX: Renforce la validation et le fallback offline côté interface.
+            appendLog(`Estimation indisponible: ${msg}`); // FIX: Renforce la validation et le fallback offline côté interface.
+            $('modalStatus').textContent = 'Estimation indisponible, lancement direct…'; // FIX: Renforce la validation et le fallback offline côté interface.
+            $('progressBar').style.width = '32%'; // FIX: Renforce la validation et le fallback offline côté interface.
+            updateResultPanel({ state: 'progress', message: 'Estimation indisponible, lancement direct…', recordHistory: true }); // FIX: Renforce la validation et le fallback offline côté interface.
+            generationProgress.step({ message: 'Estimation indisponible, lancement direct…', pct: 22 }); // FIX: Renforce la validation et le fallback offline côté interface.
+            launchGeneration(); // FIX: Renforce la validation et le fallback offline côté interface.
+          }) // FIX: Renforce la validation et le fallback offline côté interface.
+          .estimateAndLogCost_public(fd); // FIX: Renforce la validation et le fallback offline côté interface.
+      }); // FIX: Renforce la validation et le fallback offline côté interface.
+    } // FIX: Renforce la validation et le fallback offline côté interface.
     const closeBtn = $('btnCloseModal');
     if (closeBtn) {
       closeBtn.addEventListener('click', hideModal);
