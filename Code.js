@@ -56,6 +56,12 @@ function enforcePromptLimit_(systemPrompt, userPrompt) { // FIX: Vérifie côté
   return { allowed: true, tokens: approxTokens }; // FIX: Retourne l'autorisation ainsi que l'estimation en tokens.
 } // FIX: Termine le garde-fou de taille de prompt serveur.
 
+function extractJsonFromString_(raw) { // FIX: Ajoute un extracteur JSON pour nettoyer les réponses LLM.
+  if (!raw || typeof raw !== 'string') return null; // FIX: Retourne null si l'entrée est invalide.
+  const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/); // FIX: Cherche un bloc de code JSON ou un objet JSON.
+  return match ? (match[1] || match[2] || null) : null; // FIX: Retourne le contenu JSON trouvé ou null.
+} // FIX: Fin de l'extracteur JSON.
+
 function validateDeepSeekSections_(rawSections) { // FIX: Ajoute une validation stricte des sections JSON attendues.
   if (!rawSections || typeof rawSections !== "object") { // FIX: Refuse toute réponse qui n'est pas un objet JSON exploitable.
     var typeErr = new Error("Réponse DeepSeek invalide: objet JSON attendu."); // FIX: Crée une erreur explicite pour guider l'utilisateur.
@@ -1147,12 +1153,19 @@ function generateFullProposal(formData) {
 
     var sections; // FIX: Variable destinée à contenir les sections DeepSeek validées.
     try {
-      sections = validateDeepSeekSections_(JSON.parse(llm.content)); // FIX: Applique la validation de structure et de contenu minimal.
+      var jsonString = extractJsonFromString_(llm.content); // FIX: Extrait le JSON de la réponse brute.
+      if (!jsonString) { // FIX: Gère le cas où aucun JSON n'est trouvé.
+        var extractionErr = new Error("Aucun JSON valide trouvé dans la réponse IA."); // FIX: Crée une erreur explicite.
+        extractionErr.code = "NO_JSON_FOUND"; // FIX: Ajoute un code pour le traitement client.
+        throw extractionErr; // FIX: Stoppe le flux si aucun JSON n'est extrait.
+      }
+      sections = validateDeepSeekSections_(JSON.parse(jsonString)); // FIX: Applique la validation sur le JSON extrait.
     } catch (e) {
       return {
         success: false,
         error: e.message || "La réponse IA est invalide.", // FIX: Expose un message explicite lorsqu'une section manque ou est trop courte.
         code: e.code || "INVALID_SECTIONS", // FIX: Transmet un code d'erreur exploitable côté interface pour guider l'utilisateur.
+        rawContent: llm.content, // FIX: Ajoute le contenu brut pour le débogage côté client.
       }; // FIX: Arrête la génération tant que les sections DeepSeek ne sont pas conformes.
     } // FIX: Fin du bloc de validation JSON retourné par DeepSeek.
 
