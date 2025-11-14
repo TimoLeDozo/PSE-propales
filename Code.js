@@ -564,7 +564,7 @@ function callLLM_(provider, prompt, systemPrompt, temperature, options) {
       };
     }
 
-    var shouldRetry = status === 500 || status === 502 || status === 503; // FIX: Détermine quels codes méritent un retry automatique.
+    var shouldRetry = status === 429 || status === 500 || status === 502 || status === 503; // FIX: Détermine quels codes méritent un retry automatique.
     if (shouldRetry && attempt < LLM_MAX_RETRIES) { // FIX: N'attend qu'en cas d'erreur transitoire avec tentatives restantes.
       var waitForStatus = computeBackoffDelayMs_(attempt); // FIX: Calcule la pause avant la prochaine tentative.
       Logger.log("⏳ DeepSeek HTTP %s, nouvelle tentative dans %sms", status, waitForStatus); // FIX: Rend visible le comportement du backoff dans les logs Apps Script.
