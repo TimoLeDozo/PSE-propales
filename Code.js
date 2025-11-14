@@ -136,6 +136,10 @@ const COLOR_MAPPING = {
   log: "#B6D7A8",
 };
 
+function escRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
 // === utils mapping (2 sens) ===
 function normalizeColorHex(c) {
   if (!c) return null;
