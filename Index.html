@@ -1040,18 +1040,35 @@ header .logo .icam-logo-custom {
             <div class="glass-panel">
               <div class="panel-title">🧠 Brief pour DeepSeek</div>
               <div class="form-grid">
-                <div class="field grid-span-2"><label for="f_ia_probleme">Problème principal *</label><textarea id="f_ia_probleme" placeholder="Retards de livraison, manque de traçabilité…"></textarea></div>
-                <div class="field grid-span-2"><label for="f_ia_solution">Solution proposée</label><textarea id="f_ia_solution" placeholder="5S, outil de tracking, formation équipes…"></textarea></div>
-                <div class="field grid-span-2"><label for="f_ia_objectifs">Objectifs clés</label><textarea id="f_ia_objectifs" placeholder="Réduire de 20% les temps de préparation, etc."></textarea></div>
-              </div>
-            </div>
-            <div class="glass-panel">
-              <div class="panel-title">📎 Pièces jointes & outils</div>
-              <div class="form-grid">
                 <div class="field grid-span-2">
-                  <label for="f_attachments">Ajouter des documents (max 5)</label>
-                  <input id="f_attachments" type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.jpeg,.jpg,.png,.mp3,.mp4" data-max="5">
-                  <p class="files-hint" id="filesHint">Aucun fichier sélectionné.</p>
+                  <div class="field-header">
+                    <label for="f_ia_probleme">Problème principal *</label>
+                    <div class="field-actions">
+                      <button type="button" class="dictation-button" data-dict-target="f_ia_probleme">🎙️ Dicter</button>
+                      <span class="dict-status" data-dict-status="f_ia_probleme">Prêt.</span>
+                    </div>
+                  </div>
+                  <textarea id="f_ia_probleme" placeholder="Retards de livraison, manque de traçabilité…"></textarea>
+                </div>
+                <div class="field grid-span-2">
+                  <div class="field-header">
+                    <label for="f_ia_solution">Solution proposée</label>
+                    <div class="field-actions">
+                      <button type="button" class="dictation-button" data-dict-target="f_ia_solution">🎙️ Dicter</button>
+                      <span class="dict-status" data-dict-status="f_ia_solution">Prêt.</span>
+                    </div>
+                  </div>
+                  <textarea id="f_ia_solution" placeholder="5S, outil de tracking, formation équipes…"></textarea>
+                </div>
+                <div class="field grid-span-2">
+                  <div class="field-header">
+                    <label for="f_ia_objectifs">Objectifs clés</label>
+                    <div class="field-actions">
+                      <button type="button" class="dictation-button" data-dict-target="f_ia_objectifs">🎙️ Dicter</button>
+                      <span class="dict-status" data-dict-status="f_ia_objectifs">Prêt.</span>
+                    </div>
+                  </div>
+                  <textarea id="f_ia_objectifs" placeholder="Réduire de 20% les temps de préparation, etc."></textarea>
                 </div>
               </div>
             </div>
@@ -1103,6 +1120,16 @@ header .logo .icam-logo-custom {
               <div class="actions">
                 <div class="action-buttons">
                   <button type="button" id="btnGenerate">✨ Générer la propale</button>
+                </div>
+              </div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-title">📎 Pièces jointes & outils</div>
+              <div class="form-grid">
+                <div class="field grid-span-2">
+                  <label for="f_attachments">Ajouter des documents (jusqu’à 5)</label>
+                  <input id="f_attachments" type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.jpeg,.jpg,.png,.mp3,.mp4" data-max="5">
+                  <p class="files-hint" id="filesHint">Aucun fichier sélectionné (0/5).</p>
                 </div>
               </div>
             </div>
@@ -1957,21 +1984,27 @@ header .logo .icam-logo-custom {
 
     const attachmentsInput = $('f_attachments');
     if (attachmentsInput) {
-      const maxFiles = parseInt(attachmentsInput.getAttribute('data-max') || '5', 10);
+      const configuredMax = parseInt(attachmentsInput.getAttribute('data-max') || '5', 10);
+      const maxFiles = Number.isFinite(configuredMax) ? Math.max(5, configuredMax) : 5;
+      const updateFilesHint = (count) => {
+        if (!filesHintEl) return;
+        if (!count) {
+          filesHintEl.textContent = `Aucun fichier sélectionné (0/${maxFiles}).`;
+          return;
+        }
+        filesHintEl.textContent = `${count}/${maxFiles} fichier(s) sélectionné(s).`;
+      };
+      updateFilesHint(0);
       attachmentsInput.addEventListener('change', () => {
         const files = Array.from(attachmentsInput.files || []);
         if (files.length > maxFiles) {
           alert(`Jusqu’à ${maxFiles} fichiers.`);
           attachmentsInput.value = '';
-          if (filesHintEl) filesHintEl.textContent = 'Aucun fichier sélectionné.';
+          updateFilesHint(0);
           appendLog('Sélection trop importante de pièces jointes.');
           return;
         }
-        if (filesHintEl) {
-          filesHintEl.textContent = files.length
-            ? `${files.length} fichier(s) sélectionné(s).`
-            : 'Aucun fichier sélectionné.';
-        }
+        updateFilesHint(files.length);
         appendLog(files.length
           ? `Pièces jointes sélectionnées: ${files.length}`
           : 'Aucune pièce jointe sélectionnée.');
