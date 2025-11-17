@@ -466,7 +466,7 @@ header .logo .icam-logo-custom {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 28px;
+      gap: 24px;
       flex-wrap: wrap;
       margin-bottom: 18px;
     }
@@ -474,19 +474,17 @@ header .logo .icam-logo-custom {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: clamp(88px, 18vw, 140px);
-      aspect-ratio: 1 / 1;
-      padding: 12px;
-      border-radius: 24px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-      backdrop-filter: blur(14px);
+      width: auto;
+      padding: 0;
+      background: none;
+      border: none;
+      box-shadow: none;
+      backdrop-filter: none;
     }
     .console-logo {
-      width: 100%;
-      max-width: 100%;
-      max-height: 100%;
+      width: 74px;
+      height: 74px;
+      object-fit: contain;
       filter: drop-shadow(0 0 14px rgba(224, 163, 255, 0.6));
     }
     .console-header p { max-width: 780px; margin: 0 auto; }
