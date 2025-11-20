@@ -784,13 +784,13 @@ header .logo .icam-logo-custom {
     .section-title { font-size: clamp(2.2rem, 4vw, 3.2rem); text-align: center; margin-bottom: 80px; letter-spacing: 0.02em; }
     .showcase { padding: 140px 20px; }
     .hexagon-container { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
-    .hexagon { width: 210px; height: 260px; position: relative; }
-    .hexagon-inner { position: absolute; inset: 0; padding: 40px 24px; border-radius: 26px; transform: rotate(30deg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(18px); transition: transform 0.4s ease, box-shadow 0.4s ease; box-shadow: var(--glass-shadow); }
-    .hexagon:hover .hexagon-inner { transform: rotate(0deg); box-shadow: 0 35px 55px rgba(0,0,0,0.45); }
-    .hexagon-icon { font-size: 2.6rem; transform: rotate(-30deg); }
-    .hexagon h4, .hexagon p { transform: rotate(-30deg); }
-    .hexagon h4 { font-size: 1.2rem; }
-    .hexagon p { color: rgba(255, 255, 255, 0.65); font-size: 0.9rem; }
+    .hexagon { width: 210px; height: 260px; position: relative; transition: transform 0.8s ease, opacity 0.8s ease; }
+    .hexagon-bg { position: absolute; inset: 0; border-radius: 26px; transform: rotate(30deg); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(18px); transition: transform 0.4s ease, box-shadow 0.4s ease; box-shadow: var(--glass-shadow); z-index: 1; }
+    .hexagon-content { position: absolute; inset: 0; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; z-index: 2; pointer-events: none; }
+    .hexagon:hover .hexagon-bg { transform: rotate(0deg); box-shadow: 0 35px 55px rgba(0,0,0,0.45); }
+    .hexagon-icon { font-size: 2.6rem; width: 100%; text-align: center; }
+    .hexagon h4 { font-size: 1.2rem; text-align: center; margin: 0; }
+    .hexagon p { color: rgba(255, 255, 255, 0.65); font-size: 0.9rem; text-align: center; margin: 0; text-wrap: balance; }
 
 
     footer { padding: 80px 20px; background: rgba(0, 0, 0, 0.5); border-top: 1px solid rgba(255, 255, 255, 0.1); }
@@ -1200,12 +1200,12 @@ header .logo .icam-logo-custom {
     <section class="showcase" id="showcase">
       <h2 class="section-title">Matrix Protocols</h2>
       <div class="hexagon-container">
-        <div class="hexagon"><div class="hexagon-inner"><div class="hexagon-icon">🔮</div><h4>Holographic UI</h4><p>Interface monofichier prête pour Apps Script</p></div></div>
-        <div class="hexagon"><div class="hexagon-inner"><div class="hexagon-icon">🛡️</div><h4>Quantum Security</h4><p>Clé DeepSeek stockée côté serveur</p></div></div>
-        <div class="hexagon"><div class="hexagon-inner"><div class="hexagon-icon">🚀</div><h4>Speed Navigation</h4><p>Accès direct au document généré</p></div></div>
-        <div class="hexagon"><div class="hexagon-inner"><div class="hexagon-icon">💎</div><h4>Crystal Storage</h4><p>Copie organisée dans Drive cible</p></div></div>
-        <div class="hexagon"><div class="hexagon-inner"><div class="hexagon-icon">🎯</div><h4>Neural Targeting</h4><p>Color mapping intelligent</p></div></div>
-        <div class="hexagon"><div class="hexagon-inner"><div class="hexagon-icon">⭐</div><h4>Stellar Network</h4><p>Workflow collaboratif Icam</p></div></div>
+        <div class="hexagon"><div class="hexagon-bg"></div><div class="hexagon-content"><div class="hexagon-icon">🔮</div><h4>Holographic UI</h4><p>Interface monofichier prête pour Apps Script</p></div></div>
+        <div class="hexagon"><div class="hexagon-bg"></div><div class="hexagon-content"><div class="hexagon-icon">🛡️</div><h4>Quantum Security</h4><p>Clé DeepSeek stockée côté serveur</p></div></div>
+        <div class="hexagon"><div class="hexagon-bg"></div><div class="hexagon-content"><div class="hexagon-icon">🚀</div><h4>Speed Navigation</h4><p>Accès direct au document généré</p></div></div>
+        <div class="hexagon"><div class="hexagon-bg"></div><div class="hexagon-content"><div class="hexagon-icon">💎</div><h4>Crystal Storage</h4><p>Copie organisée dans Drive cible</p></div></div>
+        <div class="hexagon"><div class="hexagon-bg"></div><div class="hexagon-content"><div class="hexagon-icon">🎯</div><h4>Neural Targeting</h4><p>Color mapping intelligent</p></div></div>
+        <div class="hexagon"><div class="hexagon-bg"></div><div class="hexagon-content"><div class="hexagon-icon">⭐</div><h4>Stellar Network</h4><p>Workflow collaboratif Icam</p></div></div>
       </div>
     </section>
 
@@ -1365,10 +1365,9 @@ header .logo .icam-logo-custom {
         }
       });
     }, observerOptions);
-    document.querySelectorAll('.hexagon-inner').forEach(el => {
+    document.querySelectorAll('.hexagon').forEach(el => {
       el.style.opacity = '0';
       el.style.transform = 'translateY(40px)';
-      el.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
       revealObserver.observe(el);
     });
 
