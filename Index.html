@@ -2051,7 +2051,7 @@ header .logo .icam-logo-custom {
       });
     }
     if (btnGenerate) { // FIX: Vérifie que le bouton existe avant d'ajouter la logique renforcée.
-      btnGenerate.addEventListener('click', () => { // FIX: Surveille chaque clic pour appliquer les nouvelles validations.
+      btnGenerate.addEventListener('click', async () => { // FIX: Surveille chaque clic pour appliquer les nouvelles validations.
         const fd = collectForm(); // FIX: Capture l'état complet du formulaire avant validations supplémentaires.
         const missing = []; // FIX: Initialise la liste des champs obligatoires manquants.
         if (!fd.titre) missing.push('Le titre est obligatoire'); // FIX: Garantit que le titre est fourni avant l'appel API.
@@ -2061,6 +2061,32 @@ header .logo .icam-logo-custom {
           alert('⚠️ Merci de corriger :\n\n' + missing.join('\n')); // FIX: Affiche la liste des corrections attendues.
           return; // FIX: Empêche tout appel API tant que le formulaire est incomplet.
         } // FIX: Renforce la validation et le fallback offline côté interface.
+
+        // Traitement des pièces jointes
+        const attachmentsInput = $('f_attachments');
+        if (attachmentsInput && attachmentsInput.files && attachmentsInput.files.length > 0) {
+           const files = Array.from(attachmentsInput.files);
+           const readFile = (file) => new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve({
+                  name: file.name,
+                  mimeType: file.type,
+                  bytes: reader.result.split(',')[1]
+              });
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+           });
+
+           try {
+             appendLog('Lecture des pièces jointes...');
+             fd.attachments = await Promise.all(files.map(readFile));
+             appendLog(`${fd.attachments.length} pièce(s) jointe(s) prête(s).`);
+           } catch (e) {
+             alert("Erreur lors de la lecture des fichiers : " + e);
+             return;
+           }
+        }
+
         // FIX: Séparateur requis pour contextualiser la nouvelle logique UI.
         // FIX: Sépare les validations du calcul d'estimation de tokens côté client.
         toggleRetryButton(false); // FIX: Réinitialise l'état du bouton de retry à chaque lancement.
