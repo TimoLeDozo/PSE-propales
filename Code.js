@@ -56,6 +56,11 @@ function enforcePromptLimit_(systemPrompt, userPrompt) { // FIX: Vérifie côté
   return { allowed: true, tokens: approxTokens }; // FIX: Retourne l'autorisation ainsi que l'estimation en tokens.
 } // FIX: Termine le garde-fou de taille de prompt serveur.
 
+function truncateToLimit_(fullText, limitChars) {
+  if (!fullText || fullText.length <= limitChars) return fullText;
+  return fullText.substring(0, limitChars) + "\n... [Contenu tronqué pour respecter la limite de tokens] ...";
+}
+
 function extractJsonFromString_(raw) { // FIX: Ajoute un extracteur JSON pour nettoyer les réponses LLM.
   if (!raw || typeof raw !== 'string') return null; // FIX: Retourne null si l'entrée est invalide.
   const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/); // FIX: Cherche un bloc de code JSON ou un objet JSON.
@@ -1040,6 +1045,56 @@ function applyUpdatesToDoc_(docId, updates, options) {
   return { success: true };
 }
 
+function processAttachments_(attachments) {
+  if (!attachments || !attachments.length) return "";
+  Logger.log("ProcessAttachments: %s file(s) received.", attachments.length);
+  var extractedText = [];
+
+  for (var i = 0; i < attachments.length; i++) {
+    var att = attachments[i];
+    if (!att.bytes) continue;
+    Logger.log("Processing file %s: %s (%s)", i + 1, att.name, att.mimeType);
+
+    try {
+      var blob = Utilities.newBlob(Utilities.base64Decode(att.bytes), att.mimeType, att.name);
+
+      try {
+        if (typeof Drive === 'undefined') {
+          if (att.mimeType.indexOf('text') !== -1 || att.mimeType.indexOf('csv') !== -1 || att.mimeType.indexOf('json') !== -1) {
+            extractedText.push("### Contenu du fichier: " + att.name + "\n" + blob.getDataAsString());
+          } else {
+            extractedText.push("Fichier attaché (contenu non extrait - Service Drive non activé): " + att.name);
+          }
+          continue;
+        }
+
+        var resource = {
+          title: "[TEMP_EXTRACT] " + att.name,
+          mimeType: MimeType.GOOGLE_DOCS
+        };
+
+        var insertedFile = Drive.Files.insert(resource, blob, { convert: true, ocr: true });
+        var fileId = insertedFile.id;
+        var doc = DocumentApp.openById(fileId);
+        var text = doc.getBody().getText();
+        extractedText.push("### Contenu du fichier: " + att.name + "\n" + text);
+
+        DriveApp.getFileById(fileId).setTrashed(true);
+
+      } catch (e) {
+        if (att.mimeType.indexOf('text') !== -1 || att.mimeType.indexOf('csv') !== -1) {
+          extractedText.push("### Contenu du fichier: " + att.name + "\n" + blob.getDataAsString());
+        } else {
+          extractedText.push("Fichier attaché (non lu): " + att.name + " (" + e.toString() + ")");
+        }
+      }
+    } catch (err) {
+      extractedText.push("Erreur traitement fichier " + att.name + ": " + err.toString());
+    }
+  }
+  return extractedText.join("\n\n");
+}
+
 function generateFullProposal(formData) {
   try {
     var generationStartedAt = Date.now();
@@ -1048,6 +1103,11 @@ function generateFullProposal(formData) {
         success: false,
         error: "Titre et Entreprise sont obligatoires.",
       };
+    }
+
+    var attachmentsContext = "";
+    if (formData.attachments && formData.attachments.length > 0) {
+      attachmentsContext = processAttachments_(formData.attachments);
     }
 
     var brief = [
@@ -1059,6 +1119,10 @@ function generateFullProposal(formData) {
       "- **Thématique générale** : " + (formData.thematique || "Non spécifié"),
       "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié"),
     ].join("\n");
+
+    if (attachmentsContext) {
+      brief += "\n\n## Documents attachés\n" + attachmentsContext;
+    }
 
     var mandatoryForPrompt = [
       "entrepriseNom",
@@ -1108,8 +1172,49 @@ function generateFullProposal(formData) {
       "Génère le contenu des quatre sections (`contexte`, `demarche`, `phases`, `phrase`) en te basant sur le brief ci-dessus et tes connaissances du monde de l'ingénierie et du conseil. Retourne le résultat exclusivement au format JSON.";
 
     var promptGuard = enforcePromptLimit_(sys, user); // FIX: Applique la limite haute DeepSeek avant d'appeler le LLM.
-    if (!promptGuard.allowed) { // FIX: Bloque immédiatement si plus de 100k tokens sont estimés.
-      return { success: false, error: promptGuard.error, code: "PROMPT_TOO_LARGE", promptTokens: promptGuard.tokens }; // FIX: Retourne un message exploitable côté UI avec le nombre de tokens estimé.
+    if (!promptGuard.allowed) {
+      // Si le prompt est trop long mais qu'on a des pièces jointes, on essaie de tronquer les pièces jointes.
+      if (attachmentsContext && attachmentsContext.length > 0) {
+        Logger.log("Prompt too large (%s tokens). Attempting to truncate attachments context.", promptGuard.tokens);
+        // On calcule combien on a de trop. 1 token ~= 4 chars.
+        var excessTokens = promptGuard.tokens - PROMPT_TOKEN_LIMIT;
+        var excessChars = excessTokens * 4;
+
+        // On veut réduire attachmentsContext.
+        // Target length = current length - excessChars - safety margin (e.g. 2000 chars)
+        var targetLength = Math.max(0, attachmentsContext.length - excessChars - 2000);
+
+        if (targetLength > 0) {
+          var truncatedContext = truncateToLimit_(attachmentsContext, targetLength);
+
+          // Re-generate user prompt with truncated attachments
+          brief = [
+             "## Fiche de renseignements",
+             "- **Entreprise cliente** : " + (formData.entrepriseNom || "Non spécifié"),
+             "- **Problématique principale** : " + (formData.ia_probleme || "Non spécifié"),
+             "- **Solution envisagée** : " + (formData.ia_solution || "Non spécifié"),
+             "- **Objectifs du projet** : " + (formData.ia_objectifs || "Non spécifié"),
+             "- **Thématique générale** : " + (formData.thematique || "Non spécifié"),
+             "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié"),
+           ].join("\n");
+           brief += "\n\n## Documents attachés (Tronqués)\n" + truncatedContext;
+
+           user =
+            "## Brief du projet\n" +
+            brief +
+            "\n\n" +
+            "## Instruction\n" +
+            "Génère le contenu des quatre sections (`contexte`, `demarche`, `phases`, `phrase`) en te basant sur le brief ci-dessus et tes connaissances du monde de l'ingénierie et du conseil. Retourne le résultat exclusivement au format JSON.";
+
+           // Re-check limit
+           promptGuard = enforcePromptLimit_(sys, user);
+        }
+      }
+
+      // Si toujours pas bon, on bloque.
+      if (!promptGuard.allowed) { // FIX: Bloque immédiatement si plus de 100k tokens sont estimés.
+        return { success: false, error: promptGuard.error, code: "PROMPT_TOO_LARGE", promptTokens: promptGuard.tokens }; // FIX: Retourne un message exploitable côté UI avec le nombre de tokens estimé.
+      }
     } // FIX: Fin de la surveillance de taille de prompt côté serveur.
 
     // ... dans function generateFullProposal(formData) ...
