@@ -1139,9 +1139,9 @@ header .logo .icam-logo-custom {
               <div class="panel-title">📎 Pièces jointes & outils</div>
               <div class="form-grid">
                 <div class="field grid-span-2">
-                  <label for="f_attachments">Ajouter des documents (jusqu’à 5)</label>
-                  <input id="f_attachments" type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.jpeg,.jpg,.png,.mp3,.mp4" data-max="5">
-                  <p class="files-hint" id="filesHint">Aucun fichier sélectionné (0/5).</p>
+                  <label for="f_attachments">Ajouter des documents (jusqu’à 15)</label>
+                  <input id="f_attachments" type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.jpeg,.jpg,.png,.mp3,.mp4" data-max="15">
+                  <p class="files-hint" id="filesHint">Aucun fichier sélectionné (0/15).</p>
                 </div>
               </div>
             </div>
@@ -1995,8 +1995,8 @@ header .logo .icam-logo-custom {
 
     const attachmentsInput = $('f_attachments');
     if (attachmentsInput) {
-      const configuredMax = parseInt(attachmentsInput.getAttribute('data-max') || '5', 10);
-      const maxFiles = Number.isFinite(configuredMax) ? Math.max(5, configuredMax) : 5;
+      const configuredMax = parseInt(attachmentsInput.getAttribute('data-max') || '15', 10);
+      const maxFiles = Number.isFinite(configuredMax) ? Math.max(1, configuredMax) : 15;
       const updateFilesHint = (count) => {
         if (!filesHintEl) return;
         if (!count) {
