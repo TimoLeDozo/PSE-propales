@@ -78,7 +78,7 @@ function formatDemarcheText_(demarcheText) {
 
   patterns.forEach(function (pattern) {
     text = text.replace(
-      new RegExp('([^\n])\\s*(' + pattern.source.slice(1, -2) + ')', 'g'),
+      new RegExp('([^\n])\\s*(' + pattern.source.slice(1, -1) + ')', 'g'),
       '$1\n\n$2'
     );
   });
