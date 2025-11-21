@@ -61,6 +61,53 @@ function truncateToLimit_(fullText, limitChars) {
   return fullText.substring(0, limitChars) + "\n... [Contenu tronqué pour respecter la limite de tokens] ...";
 }
 
+/**
+ * Formate le texte de démarche pour ajouter des retours à la ligne
+ * entre les points énumérés si l'IA ne l'a pas fait.
+ */
+function formatDemarcheText_(demarcheText) {
+  if (!demarcheText) return demarcheText;
+
+  var text = String(demarcheText);
+  var patterns = [
+    /(\d+\))/g, // 1) 2) 3)
+    /(\d+\.)/g, // 1. 2. 3.
+    /([a-z]\))/gi, // a) b) c)
+    /(Phase \d+\s*:)/gi, // Phase 1 :
+  ];
+
+  patterns.forEach(function (pattern) {
+    text = text.replace(
+      new RegExp('([^\n])\\s*(' + pattern.source.slice(1, -2) + ')', 'g'),
+      '$1\n\n$2'
+    );
+  });
+
+  text = text.replace(/\n{3,}/g, '\n\n');
+  return text.trim();
+}
+
+/**
+ * Convertit une durée textuelle en nombre de semaines
+ * Ex: "6 mois" → 24, "1 an" → 52, "12 semaines" → 12
+ */
+function parseDureeToWeeks_(dureeText) {
+  if (!dureeText) return null;
+
+  var text = String(dureeText).toLowerCase().trim();
+  var numberMatch = text.match(/\d+/);
+  var number = numberMatch ? parseInt(numberMatch[0], 10) : NaN;
+
+  if (isNaN(number)) return null;
+
+  if (/mois/.test(text)) return number * 4;
+  if (/an(s)?/.test(text)) return number * 52;
+  if (/semaine(s)?/.test(text)) return number;
+  if (/jour(s)?/.test(text)) return Math.ceil(number / 7);
+
+  return null;
+}
+
 function extractJsonFromString_(raw) { // FIX: Ajoute un extracteur JSON pour nettoyer les réponses LLM.
   if (!raw || typeof raw !== 'string') return null; // FIX: Retourne null si l'entrée est invalide.
   const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/); // FIX: Cherche un bloc de code JSON ou un objet JSON.
@@ -73,7 +120,7 @@ function validateDeepSeekSections_(rawSections) { // FIX: Ajoute une validation 
     typeErr.code = "INVALID_SECTIONS"; // FIX: Fournit un code exploitable par le front pour contextualiser l'erreur.
     throw typeErr; // FIX: Stoppe le flux si la structure de base n'est pas correcte.
   } // FIX: Fin de la vérification du type de l'objet JSON.
-  var required = ["contexte", "demarche", "phases", "phrase"]; // FIX: Liste des sections obligatoires demandées par le cahier des charges.
+  var required = ["titre", "contexte", "demarche", "phases", "phrase"]; // FIX: Liste des sections obligatoires demandées par le cahier des charges (inclut désormais le titre IA).
   var normalized = {}; // FIX: Prépare un objet nettoyé pour éviter les falsy inattendus.
   required.forEach(function (field) { // FIX: Boucle sur chaque section afin d'assurer une validation uniforme.
     var value = rawSections[field]; // FIX: Récupère la valeur brute renvoyée par l'IA.
@@ -83,8 +130,15 @@ function validateDeepSeekSections_(rawSections) { // FIX: Ajoute une validation 
       throw missingErr; // FIX: Interrompt la génération si une section ne respecte pas le format attendu.
     } // FIX: Fin du contrôle de type string sur la section.
     var trimmed = value.trim(); // FIX: Nettoie les espaces parasites afin de mesurer une longueur pertinente.
-    if (trimmed.length < MIN_SECTION_CHAR_LENGTH) { // FIX: Applique le seuil de contenu minimal pour éviter les réponses creuses.
-      var shortErr = new Error("Section " + field + " trop courte (<" + MIN_SECTION_CHAR_LENGTH + " caractères)."); // FIX: Informe précisément l'utilisateur du champ insuffisant.
+    var minLen = field === "titre" ? 10 : MIN_SECTION_CHAR_LENGTH; // FIX: Le titre peut être plus court mais doit rester substantiel.
+    if (trimmed.length < minLen) { // FIX: Applique un seuil différencié pour le titre.
+      var shortErr = new Error(
+        "Section " +
+          field +
+          " trop courte (<" +
+          minLen +
+          " caractères)."
+      ); // FIX: Informe précisément l'utilisateur du champ insuffisant.
       shortErr.code = "INVALID_SECTIONS"; // FIX: Garde la cohérence des codes d'erreur pour ces validations.
       throw shortErr; // FIX: Bloque la génération tant que le contenu n'est pas suffisamment étoffé.
     } // FIX: Fin du contrôle de longueur minimale.
@@ -93,26 +147,10 @@ function validateDeepSeekSections_(rawSections) { // FIX: Ajoute une validation 
   return normalized; // FIX: Retourne des sections sûres pour la suite du workflow.
 } // FIX: Clôture de la validation structurée du JSON DeepSeek.
 
-function appendGenerationMetadata_(docId, metadata) { // FIX: Ajoute une trace du modèle et de la version de prompt dans le document final.
-  try { // FIX: Utilise un bloc try/catch pour ne pas bloquer la génération si l'ajout échoue.
-    var doc = DocumentApp.openById(docId); // FIX: Récupère le document cible afin d'insérer la métadonnée.
-    var footer = doc.getFooter(); // FIX: Préfère insérer les informations en pied de page.
-    if (!footer && doc.addFooter) footer = doc.addFooter(); // FIX: Crée un footer si le template n'en fournit pas.
-    var target = footer || doc.getBody(); // FIX: Fallback vers le corps si un footer reste indisponible.
-    var stamp = Utilities.formatDate(metadata.generatedAt || new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm"); // FIX: Formate la date de génération pour audit.
-    var line = "Généré avec " + (metadata.model || "DeepSeek") + " · " + stamp + " · Prompt " + (metadata.promptVersion || "—"); // FIX: Compose la chaîne lisible réclamée par les consignes.
-    var para = target.appendParagraph(line); // FIX: Insère le texte dans le document final.
-    para.setForegroundColor("#666666"); // FIX: Rend la mention discrète mais lisible.
-    para.setFontSize(8); // FIX: Réduit la taille pour ne pas gêner la lecture de la propale.
-    doc.saveAndClose(); // FIX: Sauvegarde le document après insertion.
-    return { success: true, text: line }; // FIX: Retourne le statut pour traçage côté appelant.
-  } catch (err) { // FIX: Capture toute erreur d'accès DocumentApp.
-    Logger.log("⚠️ Impossible d'ajouter la métadonnée de génération: %s", err); // FIX: Journalise l'incident sans divulguer d'informations sensibles.
-    return { success: false, error: String(err) }; // FIX: Signale l'échec à l'appelant pour diagnostic.
-  } // FIX: Termine le bloc try/catch d'ajout de métadonnée.
-} // FIX: Fin de l'utilitaire d'annotation des documents générés.
-
 // Mapping champ -> couleur
+// ⚠️ Tous ces champs doivent être renseignés pour éviter toute trace colorée.
+// Les champs de métadonnées IA (deepseekModel, llmTemperature, etc.) ne doivent
+// JAMAIS apparaître dans le document final et seront nettoyés en post-traitement.
 const COLOR_MAPPING = {
   thematique: "#F4CCCC",
   titre: "#E06666",
@@ -290,6 +328,122 @@ function collectRemainingPlaceholders_(containers) {
   return leftover;
 }
 
+/**
+ * Normalise toutes les couleurs de fond (pas seulement le mapping connu)
+ */
+function normalizeAllColors_(container) {
+  var count = 0;
+
+  function walk(node) {
+    if (!node) return;
+    if (node.getType && node.getType() === DocumentApp.ElementType.TEXT) {
+      var t = node.asText();
+      var len = t.getText().length;
+      for (var i = 0; i < len; i++) {
+        var bg = t.getBackgroundColor(i);
+        if (bg && bg !== "#ffffff" && bg !== "#FFFFFF") {
+          try {
+            t.setBackgroundColor(i, i, null);
+            count++;
+          } catch (_) {}
+        }
+      }
+    }
+    if (node.getNumChildren) {
+      for (var j = 0; j < node.getNumChildren(); j++) {
+        walk(node.getChild(j));
+      }
+    }
+  }
+
+  walk(container);
+  return count;
+}
+
+/**
+ * Détecte les couleurs de fond restantes après nettoyage
+ */
+function detectRemainingColors_(containers) {
+  var colors = {};
+
+  function scan(node) {
+    if (!node) return;
+    if (node.getType && node.getType() === DocumentApp.ElementType.TEXT) {
+      var t = node.asText();
+      var len = t.getText().length;
+      for (var i = 0; i < len; i++) {
+        var bg = normalizeColorHex(t.getBackgroundColor(i));
+        if (bg && bg !== "#FFFFFF") {
+          colors[bg] = (colors[bg] || 0) + 1;
+        }
+      }
+    }
+    if (node.getNumChildren) {
+      for (var j = 0; j < node.getNumChildren(); j++) {
+        scan(node.getChild(j));
+      }
+    }
+  }
+
+  (containers || []).forEach(scan);
+  return Object.keys(colors).map(function (c) {
+    return { color: c, count: colors[c] };
+  });
+}
+
+/**
+ * Supprime toutes les mentions explicites d'IA dans le document final
+ */
+function removeAITraces_(containers) {
+  var aiKeywords = [
+    "DeepSeek",
+    "deepseek",
+    "IA",
+    "Intelligence Artificielle",
+    "généré par",
+    "modèle",
+    "GPT",
+    "LLM",
+    "prompt",
+    "température",
+    "tokens",
+  ];
+
+  var removedCount = 0;
+
+  (containers || []).forEach(function (container) {
+    if (!container || !container.getText) return;
+
+    aiKeywords.forEach(function (keyword) {
+      var pattern = new RegExp(escRegex(keyword), "gi");
+      var result;
+
+      while ((result = container.findText(pattern))) {
+        var elem = result.getElement();
+        if (elem && elem.getType() === DocumentApp.ElementType.TEXT) {
+          var text = elem.asText();
+          var start = result.getStartOffset();
+          var end = result.getEndOffsetInclusive();
+
+          var fullText = text.getText();
+          var sentenceStart = fullText.lastIndexOf(".", start) + 1;
+          var sentenceEnd = fullText.indexOf(".", end);
+          if (sentenceEnd === -1) sentenceEnd = fullText.length;
+
+          try {
+            text.deleteText(sentenceStart, sentenceEnd);
+            removedCount++;
+          } catch (e) {
+            Logger.log("⚠️ Impossible de supprimer trace IA: " + e);
+          }
+        }
+      }
+    });
+  });
+
+  return removedCount;
+}
+
 function finalizeProposalDocument_(docId) {
   var doc = DocumentApp.openById(docId);
   var body = doc.getBody();
@@ -311,14 +465,19 @@ function finalizeProposalDocument_(docId) {
   }
 
   var normalizedChars = 0;
+  var normalizedBg = 0;
   containers.forEach(function (container) {
     normalizedChars += normalizeTextColors_(container);
+    normalizedBg += normalizeAllColors_(container);
   });
   if (normalizedChars > 0) {
     Logger.log(
       "🎨 Normalisation couleur: %s caractère(s) repassé(s) en noir.",
       normalizedChars
     );
+  }
+  if (normalizedBg > 0) {
+    Logger.log("🧴 Fonds nettoyés: %s caractère(s) sans couleur.", normalizedBg);
   }
 
   var dedupStats = deduplicateParagraphs_(body);
@@ -340,14 +499,30 @@ function finalizeProposalDocument_(docId) {
     );
   }
 
+  var remainingColors = detectRemainingColors_(containers);
+  if (remainingColors.length > 0) {
+    Logger.log(
+      "⚠️ Couleurs résiduelles détectées: %s",
+      JSON.stringify(remainingColors)
+    );
+  }
+
+  var removedAI = removeAITraces_(containers);
+  if (removedAI > 0) {
+    Logger.log("🧹 Traces IA supprimées: %s", removedAI);
+  }
+
   doc.saveAndClose();
   return {
     success: true,
     stats: {
       replacedPlaceholders: replacedPlaceholders,
       normalizedChars: normalizedChars,
+      normalizedBackground: normalizedBg,
       duplicatesRemoved: dedupStats.removed,
       leftoverPlaceholders: leftovers,
+      remainingColors: remainingColors,
+      removedAI: removedAI,
     },
   };
 }
@@ -736,7 +911,7 @@ function createConsoleTranscriptDocument_(rawContent, sections, formData, model)
       body.appendParagraph(meta.join(' · ')).setForegroundColor('#666666');
       if (sections && typeof sections === 'object') {
         body.appendParagraph('Sections interprétées').setHeading(DocumentApp.ParagraphHeading.HEADING2);
-        ['contexte', 'demarche', 'phases', 'phrase'].forEach(function (key) {
+        ['titre', 'contexte', 'demarche', 'phases', 'phrase'].forEach(function (key) {
           if (!sections[key]) return;
           body.appendParagraph(key.toUpperCase()).setHeading(DocumentApp.ParagraphHeading.HEADING3);
           body.appendParagraph(String(sections[key]));
@@ -807,8 +982,7 @@ function applyUpdatesToDoc_(docId, updates, options) {
     var val = normalizedUpdates[field];
     var ph = "[[" + field + "]]";
     var patt = escRegex(ph);
-    var isLogo =
-      field === "entrepriseLogo" && /^https?:\/\//i.test(String(val || ""));
+    var isLogo = field === "entrepriseLogo";
 
     containers.forEach(function (el) {
       if (!el) return;
@@ -828,15 +1002,34 @@ function applyUpdatesToDoc_(docId, updates, options) {
         if (val != null && String(val).length) {
           if (isLogo) {
             try {
-              var blob = UrlFetchApp.fetch(val, {
-                muteHttpExceptions: true,
-                followRedirects: true,
-              }).getBlob();
+              var blob;
+              var valStr = String(val || "");
+              if (/^data:image\//i.test(valStr)) {
+                var matches = valStr.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+                if (matches && matches.length === 3) {
+                  var mimeType = matches[1];
+                  var base64Data = matches[2];
+                  var bytes = Utilities.base64Decode(base64Data);
+                  blob = Utilities.newBlob(bytes, mimeType);
+                  Logger.log('📷 Logo data URL détecté: ' + mimeType);
+                } else {
+                  throw new Error('Format data URL invalide');
+                }
+              } else {
+                blob = UrlFetchApp.fetch(valStr, {
+                  muteHttpExceptions: true,
+                  followRedirects: true,
+                }).getBlob();
+                Logger.log('📷 Logo URL externe: ' + valStr.substring(0, 50));
+              }
+
               t.getParent()
                 .asParagraph()
                 .insertInlineImage(0, blob)
                 .setWidth(120);
+              Logger.log('✅ Logo inséré avec succès');
             } catch (err) {
+              Logger.log('⚠️ Erreur insertion logo: ' + err.message);
               safeInsert(t, s0, String(val));
             }
           } else {
@@ -1110,6 +1303,9 @@ function generateFullProposal(formData) {
       attachmentsContext = processAttachments_(formData.attachments);
     }
 
+    var totalWeeks = parseDureeToWeeks_(formData.dureeProjet);
+    var weekInfo = totalWeeks ? " (soit environ " + totalWeeks + " semaines)" : "";
+
     var brief = [
       "## Fiche de renseignements",
       "- **Entreprise cliente** : " + (formData.entrepriseNom || "Non spécifié"),
@@ -1117,7 +1313,7 @@ function generateFullProposal(formData) {
       "- **Solution envisagée** : " + (formData.ia_solution || "Non spécifié"),
       "- **Objectifs du projet** : " + (formData.ia_objectifs || "Non spécifié"),
       "- **Thématique générale** : " + (formData.thematique || "Non spécifié"),
-      "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié"),
+      "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié") + weekInfo,
     ].join("\n");
 
     if (attachmentsContext) {
@@ -1147,11 +1343,16 @@ function generateFullProposal(formData) {
       "Tu es un consultant senior de l'Icam, un expert en ingénierie et stratégie industrielle. Ta mission est de rédiger une proposition commerciale percutante et sur mesure en réponse à un brief client. Tu ne te contentes pas de reformuler ; tu enrichis, tu contextualises et tu apportes une réelle valeur ajoutée en te basant sur ton expertise.\n\n" +
       "## Directives Clés\n" +
       "1.  **Persona & Ton** : Incarne un expert confiant, stratégique et orienté solution. Le ton doit être professionnel, précis et valoriser l'approche Icam (rigueur, pragmatisme, innovation).\n" +
-      "2.  **Format de Sortie Obligatoire** : Ta seule et unique réponse doit être un objet JSON valide. Aucun texte, commentaire ou markdown ne doit précéder ou suivre cet objet. La structure est non négociable : `{\"contexte\": \"...\", \"demarche\": \"...\", \"phases\": \"...\", \"phrase\": \"...\"}`.\n" +
+      "2.  **Format de Sortie Obligatoire** : Ta seule et unique réponse doit être un objet JSON valide. Aucun texte, commentaire ou markdown ne doit précéder ou suivre cet objet. La structure est non négociable : `{\"titre\": \"...\", \"contexte\": \"...\", \"demarche\": \"...\", \"phases\": \"...\", \"phrase\": \"...\"}`.\n" +
       "3.  **Enrichissement du Contenu (Règle Critique)** : Ne te limite JAMAIS à une simple reformulation du brief. Utilise les informations fournies comme un tremplin. Approfondis chaque section avec des concepts d'ingénierie, des méthodologies reconnues (Lean, Six Sigma, Agile, etc. si pertinent) et des arguments stratégiques.\n" +
+      "    -   `titre` : Améliore et reformule le titre fourni pour le rendre accrocheur, professionnel et aligné sur la problématique de l'entreprise (15-20 mots maximum, impactant et factuel).\n" +
       "    -   `contexte` : Va au-delà de la description du problème. Replace-le dans un contexte stratégique plus large pour l'entreprise (compétitivité, transformation numérique, excellence opérationnelle). Montre que tu comprends les enjeux business derrière la demande technique.\n" +
-      "    -   `demarche` : Ne liste pas seulement des actions. Présente une véritable méthodologie Icam. Structure ton approche, justifie tes choix (pourquoi cette méthode plutôt qu'une autre ?) et mets en avant les bénéfices attendus (efficacité, ROI, pérennité de la solution).\n" +
-      "    -   `phases` : Décompose le projet en phases logiques et séquentielles. Pour chaque phase, définis clairement : l'**objectif**, les **livrables clés** et les **jalons de validation**. Sois concret et crédible. La structure doit inspirer confiance et montrer une maîtrise parfaite du déroulement projet.\n" +
+      "    -   `demarche` : Ne liste pas seulement des actions. Présente une véritable méthodologie Icam. Structure ton approche, justifie tes choix (pourquoi cette méthode plutôt qu'une autre ?) et mets en avant les bénéfices attendus (efficacité, ROI, pérennité de la solution). Si tu utilises une énumération, formate-la clairement avec des retours à la ligne (ex: 1) Analyse...\n2) Conception...\n3) Déploiement...).\n" +
+      "    -   `phases` : Décompose le projet en phases logiques et séquentielles. Pour chaque phase, définis clairement : l'**objectif**, la **durée en semaines**, les **livrables clés** et les **jalons de validation**. " +
+      (totalWeeks
+        ? "IMPORTANT: Le projet dure " + totalWeeks + " semaines au total. Répartis ces semaines de manière cohérente sur les phases. Format attendu pour chaque phase : 'Phase X (N semaines) : ...'\n"
+        : "") +
+      "Sois concret et crédible. La structure doit inspirer confiance et montrer une maîtrise parfaite du déroulement projet.\n" +
       "    -   `phrase` : Conclus avec une phrase d'engagement puissante qui n'est pas une simple formule de politesse. Elle doit résumer la valeur ajoutée de l'Icam et ouvrir sur une collaboration fructueuse. Pense impact et partenariat.\n\n" +
       "## Exemple de Structure Attendue pour la section `phases`\n" +
       "Phase 1 : Audit & Diagnostic\n" +
@@ -1169,7 +1370,7 @@ function generateFullProposal(formData) {
       brief +
       "\n\n" +
       "## Instruction\n" +
-      "Génère le contenu des quatre sections (`contexte`, `demarche`, `phases`, `phrase`) en te basant sur le brief ci-dessus et tes connaissances du monde de l'ingénierie et du conseil. Retourne le résultat exclusivement au format JSON.";
+      "Génère le contenu des cinq sections (`titre`, `contexte`, `demarche`, `phases`, `phrase`) en te basant sur le brief ci-dessus et tes connaissances du monde de l'ingénierie et du conseil. Retourne le résultat exclusivement au format JSON.";
 
     var promptGuard = enforcePromptLimit_(sys, user); // FIX: Applique la limite haute DeepSeek avant d'appeler le LLM.
     if (!promptGuard.allowed) {
@@ -1195,7 +1396,7 @@ function generateFullProposal(formData) {
              "- **Solution envisagée** : " + (formData.ia_solution || "Non spécifié"),
              "- **Objectifs du projet** : " + (formData.ia_objectifs || "Non spécifié"),
              "- **Thématique générale** : " + (formData.thematique || "Non spécifié"),
-             "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié"),
+             "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié") + weekInfo,
            ].join("\n");
            brief += "\n\n## Documents attachés (Tronqués)\n" + truncatedContext;
 
@@ -1282,8 +1483,9 @@ function generateFullProposal(formData) {
     if (!copy.success) return copy;
 
     var updates = Object.assign({}, formData, {
+      titre: sections.titre || formData.titre,
       contexte: sections.contexte || "",
-      demarche: sections.demarche || "",
+      demarche: formatDemarcheText_(sections.demarche) || "",
       phases: sections.phases || "",
       phrase: sections.phrase || "",
     });
@@ -1292,11 +1494,6 @@ function generateFullProposal(formData) {
       removeAllHighlight: true,
     });
     if (!u.success) return { success: false, error: u.error, url: copy.url };
-
-    var metadataInfo = appendGenerationMetadata_(copy.documentId, { model: llm.model, promptVersion: PROMPT_VERSION_TAG, generatedAt: new Date() }); // FIX: Ajoute un pied de page indiquant le modèle utilisé et la version du prompt.
-    if (!metadataInfo.success) { // FIX: Trace les incidents d'annotation sans bloquer la livraison.
-      Logger.log("⚠️ Impossible d'ajouter la note de modèle: %s", metadataInfo.error); // FIX: Informe l'opérateur en cas d'échec d'écriture de la métadonnée.
-    } // FIX: Termine la gestion tolérante aux erreurs sur l'ajout de métadonnées.
 
     var finalization = finalizeProposalDocument_(copy.documentId);
     if (!finalization.success)
@@ -1321,7 +1518,6 @@ function generateFullProposal(formData) {
       postProcess: finalization.stats,
     };
     payload.promptTokens = promptGuard.tokens; // FIX: Expose l'estimation des tokens côté réponse JSON pour information utilisateur.
-    if (metadataInfo && metadataInfo.success && metadataInfo.text) payload.modelMetadata = metadataInfo.text; // FIX: Ajoute la chaîne de métadonnée afin qu'elle soit visible dans l'interface.
     if (log && log.url) payload.costLogUrl = log.url;
 
     var consoleDoc = createConsoleTranscriptDocument_(llm.content, sections, formData, llm.model);

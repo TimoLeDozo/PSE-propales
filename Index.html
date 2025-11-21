@@ -830,6 +830,62 @@ header .logo .icam-logo-custom {
     #btnCloseModal:hover { background: rgba(224,163,255,0.25); }
     .modal-result a { display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border-radius: 16px; background: linear-gradient(135deg, #6a5bff, #00ffff); color: #050505; font-weight: 600; text-decoration: none; margin-top: 10px; }
 
+    /* Modal champs manquants */
+    #missingFieldsModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 12, 0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 360;
+      padding: 20px;
+      backdrop-filter: blur(8px);
+    }
+    #missingFieldsModal .modal-content {
+      background: rgba(12, 12, 12, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 24px;
+      padding: 24px;
+      color: #fff;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+      display: grid;
+      gap: 16px;
+    }
+    #missingFieldsModal .modal-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    #missingFieldsModal .modal-close { background: transparent; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; }
+    #missingFieldsModal .modal-body { color: rgba(255,255,255,0.85); font-size: 0.95rem; }
+    .missing-fields-list {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 0;
+      margin: 12px 0 0;
+    }
+    .missing-fields-list li {
+      padding: 12px;
+      margin: 8px 0;
+      background: rgba(255, 200, 0, 0.1);
+      border-left: 4px solid #ffc800;
+      border-radius: 6px;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .missing-fields-list li strong { color: #ffc800; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; }
+    .alert-warning {
+      background: rgba(255, 152, 0, 0.08);
+      border: 1px solid rgba(255, 152, 0, 0.25);
+      padding: 14px;
+      border-radius: 10px;
+      color: #ffdd99;
+      font-size: 0.95rem;
+    }
+    #missingFieldsModal .modal-footer { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+    #missingFieldsModal .cta-button { border: none; padding: 12px 18px; border-radius: 12px; cursor: pointer; font-weight: 600; letter-spacing: 0.06em; }
+    #missingFieldsModal .cta-button.secondary { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.12); }
+    #missingFieldsModal .cta-button:not(.secondary) { background: linear-gradient(135deg, #ffc800, #ff7b00); color: #050505; }
+
     .llm-console-overlay {
       position: fixed;
       inset: 0;
@@ -1286,6 +1342,27 @@ header .logo .icam-logo-custom {
       <div class="modal-progress"><div id="progressBar" class="modal-progress-bar"></div></div>
       <div id="modalResult" class="modal-result"></div>
       <div class="modal-actions"><button id="btnCloseModal">Fermer</button></div>
+    </div>
+  </div>
+
+  <!-- Modal pour champs manquants -->
+  <div id="missingFieldsModal" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚠️ Champs Incomplets Détectés</h3>
+        <button id="btnCloseMissingFields" class="modal-close" aria-label="Fermer">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Les champs suivants sont vides. Le document généré contiendra des zones colorées pour ces placeholders :</p>
+        <ul id="missingFieldsList" class="missing-fields-list"></ul>
+        <div class="alert-warning">
+          <strong>Recommandation :</strong> Remplissez tous les champs pour un document professionnel sans traces visuelles.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnFillFields" class="cta-button secondary">Remplir les champs</button>
+        <button id="btnContinueAnyway" class="cta-button">Continuer quand même</button>
+      </div>
     </div>
   </div>
 
@@ -1859,6 +1936,62 @@ header .logo .icam-logo-custom {
       }
       return out;
     }
+
+    const REQUIRED_FIELDS = {
+      f_titre: { label: 'Titre du projet', color: '#E06666' },
+      f_entrepriseNom: { label: 'Nom entreprise', color: '#FFFF00' },
+      f_clientNom: { label: 'Nom du contact', color: '#D9EAD3' },
+      f_dureeProjet: { label: 'Durée du projet', color: '#3D85C6' },
+      f_thematique: { label: 'Thématique', color: '#F4CCCC' },
+    };
+    let lastMissingFields = [];
+    let pendingGenerationStart = null;
+
+    function checkMissingFields() {
+      const missing = [];
+      Object.keys(REQUIRED_FIELDS).forEach((fieldId) => {
+        const el = document.getElementById(fieldId);
+        const value = el && typeof el.value === 'string' ? el.value.trim() : '';
+        if (!value) {
+          missing.push({
+            id: fieldId,
+            label: REQUIRED_FIELDS[fieldId].label,
+            color: REQUIRED_FIELDS[fieldId].color,
+          });
+        }
+      });
+      lastMissingFields = missing;
+      return missing;
+    }
+
+    function showMissingFieldsModal(missingFields) {
+      const modal = $('missingFieldsModal');
+      const list = $('missingFieldsList');
+      if (!modal || !list) return;
+      list.innerHTML = '';
+      missingFields.forEach((field) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${field.label}</strong><span style="background:${field.color}; padding:2px 8px; border-radius:4px; margin-left:8px; font-size:0.85em;">Zone colorée</span>`;
+        list.appendChild(li);
+      });
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideMissingFieldsModal() {
+      const modal = $('missingFieldsModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function focusFirstMissingField() {
+      const first = lastMissingFields[0];
+      if (first) {
+        const target = document.getElementById(first.id);
+        if (target) target.focus();
+      }
+    }
     let speechRecognition = null;
     let dictationActive = false;
     let dictationStopping = false;
@@ -2145,11 +2278,11 @@ header .logo .icam-logo-custom {
       });
     }
     if (btnGenerate) { // FIX: Vérifie que le bouton existe avant d'ajouter la logique renforcée.
-      btnGenerate.addEventListener('click', async () => { // FIX: Surveille chaque clic pour appliquer les nouvelles validations.
+      const runGeneration = async () => { // FIX: Extrait la logique pour pouvoir la relancer après un avertissement.
         const fd = collectForm(); // FIX: Capture l'état complet du formulaire avant validations supplémentaires.
         const missing = []; // FIX: Initialise la liste des champs obligatoires manquants.
         if (!fd.titre) missing.push('Le titre est obligatoire'); // FIX: Garantit que le titre est fourni avant l'appel API.
-        if (!fd.entrepriseNom) missing.push('Le nom de l’entreprise est obligatoire'); // FIX: Rappelle la contrainte sur le nom client.
+        if (!fd.entrepriseNom) missing.push("Le nom de l’entreprise est obligatoire"); // FIX: Rappelle la contrainte sur le nom client.
         if (!fd.ia_probleme) missing.push('Le problème principal est obligatoire'); // FIX: Empêche un prompt incomplet côté DeepSeek.
         if (missing.length) { // FIX: Arrête la génération si des champs critiques sont absents.
           alert('⚠️ Merci de corriger :\n\n' + missing.join('\n')); // FIX: Affiche la liste des corrections attendues.
@@ -2326,7 +2459,17 @@ header .logo .icam-logo-custom {
             launchGeneration(); // FIX: Renforce la validation et le fallback offline côté interface.
           }) // FIX: Renforce la validation et le fallback offline côté interface.
           .estimateAndLogCost_public(fd); // FIX: Renforce la validation et le fallback offline côté interface.
-      }); // FIX: Renforce la validation et le fallback offline côté interface.
+      }; // FIX: Renforce la validation et le fallback offline côté interface.
+
+      btnGenerate.addEventListener('click', async () => { // FIX: Surveille chaque clic pour appliquer les nouvelles validations.
+        pendingGenerationStart = runGeneration; // FIX: Permet de relancer après un avertissement champs manquants.
+        const missingFields = checkMissingFields();
+        if (missingFields.length) {
+          showMissingFieldsModal(missingFields);
+          return;
+        }
+        await runGeneration();
+      });
     } // FIX: Renforce la validation et le fallback offline côté interface.
     const closeBtn = $('btnCloseModal');
     if (closeBtn) {
@@ -2335,6 +2478,39 @@ header .logo .icam-logo-custom {
     const modal = $('modal');
     if (modal) {
       modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
+    }
+
+    const missingFieldsModal = $('missingFieldsModal');
+    const btnCloseMissingFields = $('btnCloseMissingFields');
+    const btnFillFields = $('btnFillFields');
+    const btnContinueAnyway = $('btnContinueAnyway');
+
+    if (btnCloseMissingFields) {
+      btnCloseMissingFields.addEventListener('click', () => {
+        hideMissingFieldsModal();
+        pendingGenerationStart = null;
+      });
+    }
+    if (btnFillFields) {
+      btnFillFields.addEventListener('click', () => {
+        hideMissingFieldsModal();
+        focusFirstMissingField();
+      });
+    }
+    if (btnContinueAnyway) {
+      btnContinueAnyway.addEventListener('click', () => {
+        hideMissingFieldsModal();
+        const action = pendingGenerationStart;
+        pendingGenerationStart = null;
+        if (typeof action === 'function') {
+          action();
+        }
+      });
+    }
+    if (missingFieldsModal) {
+      missingFieldsModal.addEventListener('click', (e) => {
+        if (e.target === missingFieldsModal) hideMissingFieldsModal();
+      });
     }
   </script>
 </body>
