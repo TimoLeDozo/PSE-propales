@@ -659,6 +659,7 @@ header .logo .icam-logo-custom {
     }
     .result-status.is-idle { border-color: var(--color-border); background: rgba(255,255,255,0.04); }
     .result-status.is-progress { border-color: rgba(0, 247, 255, 0.45); background: rgba(0, 247, 255, 0.08); }
+    .result-status.is-warning { border-color: rgba(255, 168, 88, 0.7); background: rgba(255, 168, 88, 0.12); }
     .result-status.is-success { border-color: rgba(0, 255, 153, 0.45); background: rgba(0, 255, 153, 0.08); }
     .result-status.is-error { border-color: rgba(255, 105, 180, 0.5); background: rgba(255, 105, 180, 0.1); }
     .result-history {
@@ -707,6 +708,10 @@ header .logo .icam-logo-custom {
       border-color: rgba(0, 247, 255, 0.85);
       box-shadow: 0 0 0 4px rgba(0, 247, 255, 0.18);
     }
+    .result-item.is-warning::before {
+      border-color: rgba(255, 168, 88, 0.85);
+      box-shadow: 0 0 0 4px rgba(255, 168, 88, 0.2);
+    }
     .result-item.is-success::before {
       border-color: rgba(0, 255, 153, 0.85);
       box-shadow: 0 0 0 4px rgba(0, 255, 153, 0.18);
@@ -724,8 +729,23 @@ header .logo .icam-logo-custom {
     }
     .result-item:hover { transform: translateY(-3px); border-color: rgba(0, 247, 255, 0.3); }
     .result-item.is-progress { border-color: rgba(0, 247, 255, 0.3); }
+    .result-item.is-warning { border-color: rgba(255, 168, 88, 0.4); }
     .result-item.is-success { border-color: rgba(0, 255, 153, 0.35); }
     .result-item.is-error { border-color: rgba(255, 105, 180, 0.35); }
+    .validation-alert {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 168, 88, 0.6);
+      background: rgba(255, 168, 88, 0.08);
+      color: var(--color-text);
+      line-height: 1.5;
+    }
+    .validation-alert ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+    .validation-alert li { margin-bottom: 6px; }
     .panel-title { font-size: 1.3rem; font-weight: 600; margin-bottom: 24px; letter-spacing: 0.04em; display: flex; align-items: center; gap: 10px; color: #fff; }
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px 22px; }
     .field label { display: block; margin-bottom: 8px; font-size: 0.78rem; letter-spacing: 0.14em; color: rgba(255, 255, 255, 0.65); text-transform: uppercase; }
@@ -1830,6 +1850,57 @@ header .logo .icam-logo-custom {
       if (docUrl) parts.push(`Document : ${docUrl}`);
       return parts.length ? parts.join('\n\n') : 'Sections générées disponibles dans le document.';
     }
+    const COLOR_FIELD_MAP = {
+      '#F4CCCC': 'Thématique',
+      '#E06666': 'Titre',
+      '#C27BA0': 'Code projet',
+      '#FFF2CC': 'Date de début',
+      '#A2C4C9': 'Version du document',
+      '#D9EAD3': 'Nom du contact client',
+      '#FCE5CD': 'Fonction du contact',
+      '#E6B8AF': 'Email du contact',
+      '#EAD1DC': 'Téléphone du contact',
+      '#FFFF00': 'Entreprise',
+      '#C9DAF8': "Adresse de l’entreprise",
+      '#D9D9D9': "Logo de l’entreprise",
+      '#3D85C6': 'Durée du projet',
+      '#A64D79': 'Contexte',
+      '#76A5AF': 'Démarche',
+      '#8E7CC3': 'Phases',
+      '#F6B26B': 'Phrase de clôture',
+      '#9DC3E6': 'Modèle IA',
+      '#F4B183': 'Température LLM',
+      '#B4C7E7': 'Top P LLM',
+      '#A9D18E': 'Max tokens LLM',
+      '#CFE2F3': 'Horodatage journal',
+      '#F9CB9C': 'Type journal',
+      '#D5A6BD': 'Cours journal',
+      '#B6D7A8': 'Log interne',
+    };
+    function normalizeColorHex(color) {
+      if (!color) return null;
+      const normalized = String(color).toUpperCase();
+      return normalized.length > 7 ? normalized.slice(0, 7) : normalized;
+    }
+    function parseValidationReport(report) {
+      const remainingColors = report && Array.isArray(report.remainingColors) ? report.remainingColors : [];
+      const remainingCount = typeof (report && report.remainingColorsCount) === 'number'
+        ? report.remainingColorsCount
+        : remainingColors.reduce((sum, entry) => sum + (entry && typeof entry.count === 'number' ? entry.count : 0), 0);
+      return { remainingColors, remainingCount };
+    }
+    function buildValidationAlert(remainingColors) {
+      if (!remainingColors || !remainingColors.length) return '';
+      const aggregated = remainingColors.reduce((acc, entry) => {
+        const color = normalizeColorHex(entry && entry.color);
+        const label = COLOR_FIELD_MAP[color] || `Couleur ${color || 'inconnue'}`;
+        const count = entry && typeof entry.count === 'number' ? entry.count : 0;
+        acc[label] = (acc[label] || 0) + count;
+        return acc;
+      }, {});
+      const items = Object.keys(aggregated).map(label => `<li>${label} — ${aggregated[label]} surbrillance(s)</li>`).join('');
+      return `<div class="validation-alert"><p>Champs à compléter :</p><ul>${items}</ul></div>`;
+    }
     function appendLog(message) {
       const logEl = $('f_log');
       if (!logEl) return;
@@ -2367,13 +2438,28 @@ header .logo .icam-logo-custom {
             .withSuccessHandler(res => { // FIX: Renforce la validation et le fallback offline côté interface.
               if (res && res.success) { // FIX: Renforce la validation et le fallback offline côté interface.
                 generationProgress.settle({ message: 'Document généré', latencyMs: res.latencyMs }); // FIX: Renforce la validation et le fallback offline côté interface.
-                showModal('🎉 Succès', 'Document créé', 100); // FIX: Renforce la validation et le fallback offline côté interface.
                 const docUrl = res.url || ''; // FIX: Renforce la validation et le fallback offline côté interface.
-                $('modalResult').innerHTML = docUrl ? `<a href="${docUrl}" target="_blank" rel="noopener">📄 Ouvrir le document</a>` : ''; // FIX: Renforce la validation et le fallback offline côté interface.
                 const costMessage = (res.cost && typeof res.cost.total === 'number') // FIX: Renforce la validation et le fallback offline côté interface.
                   ? `Document généré — coût $${res.cost.total.toFixed(4)}` // FIX: Renforce la validation et le fallback offline côté interface.
                   : 'Document généré'; // FIX: Renforce la validation et le fallback offline côté interface.
-                updateResultPanel({ state: 'success', message: costMessage, link: docUrl, linkLabel: 'Ouvrir', recordHistory: true }); // FIX: Renforce la validation et le fallback offline côté interface.
+
+                const parsedReport = parseValidationReport(res.validationReport); // FIX: Analyse le rapport de validation provenant du serveur.
+                const hasResidualColors = parsedReport.remainingCount > 0; // FIX: Détecte les zones non remplacées restantes.
+                const modalTitle = hasResidualColors ? '⚠️ Validation partielle' : '🎉 Succès'; // FIX: Ajuste le titre selon l'état de validation.
+                const modalStatus = hasResidualColors
+                  ? `Attention : ${parsedReport.remainingCount} zones n'ont pas été remplacées`
+                  : 'Succès 100% — aucune couleur restante'; // FIX: Informe sur l'état des couleurs résiduelles.
+                const linkHtml = docUrl ? `<p><a href="${docUrl}" target="_blank" rel="noopener">📄 Ouvrir le document</a></p>` : ''; // FIX: Conserve le lien vers le document généré.
+                const validationList = hasResidualColors ? buildValidationAlert(parsedReport.remainingColors) : ''; // FIX: Liste les champs manquants probables.
+                const modalBody = linkHtml + validationList; // FIX: Concatène lien et alertes éventuelles.
+                const statusState = hasResidualColors ? 'warning' : 'success'; // FIX: Modifie la couleur de statut si nécessaire.
+                const statusMessage = hasResidualColors
+                  ? `${costMessage} — ${parsedReport.remainingCount} zone(s) à vérifier`
+                  : `${costMessage} · Validation 100%`; // FIX: Affiche l'état final.
+
+                showModal(modalTitle, modalStatus, hasResidualColors ? 85 : 100); // FIX: Met à jour le modal avec le message adapté.
+                $('modalResult').innerHTML = modalBody || linkHtml; // FIX: Injecte le lien et les alertes éventuelles.
+                updateResultPanel({ state: statusState, message: statusMessage, link: docUrl, linkLabel: 'Ouvrir', recordHistory: true }); // FIX: Met à jour le panneau de statut avec la couleur adéquate.
                 if (res.aiSections) { // FIX: Renforce la validation et le fallback offline côté interface.
                   updatePreview(buildAiPreview(res.aiSections, docUrl)); // FIX: Renforce la validation et le fallback offline côté interface.
                 } else if (res.llmContent) { // FIX: Renforce la validation et le fallback offline côté interface.
