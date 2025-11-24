@@ -1243,6 +1243,9 @@ function processAttachments_(attachments) {
   Logger.log("ProcessAttachments: %s file(s) received.", attachments.length);
   var extractedText = [];
 
+  var driveAppAvailable = typeof DriveApp !== "undefined";
+  var driveApiAvailable = typeof Drive !== "undefined" && Drive.Files && typeof Drive.Files.insert === "function";
+
   for (var i = 0; i < attachments.length; i++) {
     var att = attachments[i];
     if (!att.bytes) continue;
@@ -1250,42 +1253,57 @@ function processAttachments_(attachments) {
 
     try {
       var blob = Utilities.newBlob(Utilities.base64Decode(att.bytes), att.mimeType, att.name);
+      var mimeType = (att.mimeType || "").toLowerCase();
+      var isTextLike =
+        mimeType.indexOf("text") !== -1 || mimeType.indexOf("csv") !== -1 || mimeType.indexOf("json") !== -1;
+      var isPdfOrImage = mimeType.indexOf("pdf") !== -1 || mimeType.indexOf("image") !== -1;
 
-      try {
-        if (typeof Drive === 'undefined') {
-          if (att.mimeType.indexOf('text') !== -1 || att.mimeType.indexOf('csv') !== -1 || att.mimeType.indexOf('json') !== -1) {
-            extractedText.push("### Contenu du fichier: " + att.name + "\n" + blob.getDataAsString());
-          } else {
-            extractedText.push("Fichier attaché (contenu non extrait - Service Drive non activé): " + att.name);
-          }
+      if (isTextLike) {
+        extractedText.push("### Contenu du fichier: " + att.name + "\n" + blob.getDataAsString());
+        continue;
+      }
+
+      if (isPdfOrImage) {
+        if (!driveAppAvailable || !driveApiAvailable) {
+          extractedText.push(
+            "Fichier attaché (OCR non disponible - Service Drive désactivé): " +
+              att.name +
+              ". Veuillez activer l'API Drive dans les paramètres du projet."
+          );
           continue;
         }
 
-        var resource = {
-          title: "[TEMP_EXTRACT] " + att.name,
-          mimeType: MimeType.GOOGLE_DOCS
-        };
+        try {
+          var resource = {
+            title: "[TEMP_EXTRACT] " + att.name,
+            mimeType: MimeType.GOOGLE_DOCS,
+          };
 
-        var insertedFile = Drive.Files.insert(resource, blob, { convert: true, ocr: true });
-        var fileId = insertedFile.id;
-        var doc = DocumentApp.openById(fileId);
-        var text = doc.getBody().getText();
-        extractedText.push("### Contenu du fichier: " + att.name + "\n" + text);
-
-        DriveApp.getFileById(fileId).setTrashed(true);
-
-      } catch (e) {
-        if (att.mimeType.indexOf('text') !== -1 || att.mimeType.indexOf('csv') !== -1) {
-          extractedText.push("### Contenu du fichier: " + att.name + "\n" + blob.getDataAsString());
-        } else {
-          extractedText.push("Fichier attaché (non lu): " + att.name + " (" + e.toString() + ")");
+          var insertedFile = Drive.Files.insert(resource, blob, { convert: true, ocr: true });
+          var fileId = insertedFile.id;
+          var doc = DocumentApp.openById(fileId);
+          var text = doc.getBody().getText();
+          extractedText.push("### Contenu du fichier: " + att.name + "\n" + text);
+          DriveApp.getFileById(fileId).setTrashed(true);
+        } catch (ocrErr) {
+          var errMsg = ocrErr && ocrErr.message ? String(ocrErr.message) : String(ocrErr);
+          if (errMsg.indexOf("Drive service not enabled") !== -1) {
+            extractedText.push(
+              "Veuillez activer l'API Drive dans les paramètres du projet pour traiter " + att.name + "."
+            );
+          } else {
+            extractedText.push("Fichier attaché (OCR échoué): " + att.name + " (" + errMsg + ")");
+          }
         }
+        continue;
       }
+
+      extractedText.push("Fichier attaché (type non pris en charge pour l'extraction): " + att.name);
     } catch (err) {
       extractedText.push("Erreur traitement fichier " + att.name + ": " + err.toString());
     }
   }
-  return extractedText.join("\n\n");
+  return extractedText.join("\n\n").trim();
 }
 
 function generateFullProposal(formData) {
