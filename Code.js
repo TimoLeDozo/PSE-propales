@@ -1499,6 +1499,21 @@ function generateFullProposal(formData) {
     if (!finalization.success)
       return { success: false, error: finalization.error, url: copy.url };
 
+    var validationReport = {
+      remainingColors:
+        finalization &&
+        finalization.stats &&
+        Array.isArray(finalization.stats.remainingColors)
+          ? finalization.stats.remainingColors
+          : [],
+    };
+    validationReport.remainingColorsCount = validationReport.remainingColors.reduce(
+      function (acc, entry) {
+        return acc + (entry && typeof entry.count === "number" ? entry.count : 0);
+      },
+      0
+    );
+
     var log = logApiUsage_(llm, formData);
 
     var payload = {
@@ -1516,6 +1531,7 @@ function generateFullProposal(formData) {
       maxTokens: maxTok,
       topP: topP,
       postProcess: finalization.stats,
+      validationReport: validationReport,
     };
     payload.promptTokens = promptGuard.tokens; // FIX: Expose l'estimation des tokens côté réponse JSON pour information utilisateur.
     if (log && log.url) payload.costLogUrl = log.url;
