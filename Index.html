@@ -1147,6 +1147,8 @@ header .logo .icam-logo-custom {
                 <div class="field grid-span-2"><label for="f_titre">Titre *</label><input id="f_titre" type="text" placeholder="Optimisation flux entrepôt" required></div>
                 <div class="field"><label for="f_codeProjet">Code projet</label><input id="f_codeProjet" type="text" placeholder="144-16"></div>
                 <div class="field"><label for="f_dateDebut">Date début</label><input id="f_dateDebut" type="date"></div>
+                <div class="field"><label class="form-label fw-bold text-success" for="f_nbEquipes">Nb. Équipes</label><input id="f_nbEquipes" name="nbEquipes" type="number" class="form-control" value="1" min="1"></div>
+                <div class="field"><label class="form-label fw-bold text-success" for="f_dureeSemaines">Durée (Semaines)</label><input id="f_dureeSemaines" name="dureeSemaines" type="number" class="form-control" value="24" placeholder="Standard: 24"></div>
                 <div class="field"><label for="f_versionDoc">Version</label><input id="f_versionDoc" type="text" placeholder="V1"></div>
                 <div class="field"><label for="f_dureeProjet">Durée</label><input id="f_dureeProjet" type="text" placeholder="6 mois"></div>
                 <div class="field"><label for="f_thematique">Thématique</label><input id="f_thematique" type="text" placeholder="Logistique / Supply-chain"></div>
@@ -1528,7 +1530,7 @@ header .logo .icam-logo-custom {
     const llmConsoleTriggers = Array.from(document.querySelectorAll('[data-open-llm-console]'));
     const PROMPT_TOKEN_LIMIT = 100000; // FIX: Limite client pour bloquer les prompts trop volumineux.
     const PROMPT_STATIC_TOKEN_OVERHEAD = 2500; // FIX: Approximation des instructions système pour l'estimation des tokens.
-    const promptEstimateFieldKeys = ['titre','entrepriseNom','ia_probleme','ia_solution','ia_objectifs','thematique','dureeProjet','contexte','demarche','phases','phrase']; // FIX: Liste des champs pris en compte dans l'estimateur local.
+    const promptEstimateFieldKeys = ['titre','entrepriseNom','ia_probleme','ia_solution','ia_objectifs','thematique','dureeProjet','nbEquipes','dureeSemaines','contexte','demarche','phases','phrase']; // FIX: Liste des champs pris en compte dans l'estimateur local.
     const actionButtonsContainer = document.querySelector('.action-buttons'); // FIX: Cible le conteneur des boutons d'action pour injecter le bouton de retry.
     const tokenEstimateBadge = document.createElement('p'); // FIX: Prépare l'indicateur visuel de tokens côté UI.
     tokenEstimateBadge.id = 'tokenEstimate'; // FIX: Donne un identifiant pour faciliter les mises à jour.
@@ -1958,10 +1960,10 @@ header .logo .icam-logo-custom {
     }
     function hideModal() { $('modal').classList.remove('active'); }
     const decimalFields = new Set(['llmTemperature', 'llmTopP']);
-    const integerFields = new Set(['llmMaxTokens']);
+    const integerFields = new Set(['llmMaxTokens', 'nbEquipes', 'dureeSemaines']);
     const rawFields = new Set(['log']);
     function collectForm() {
-      const fields = ['titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','ia_probleme','ia_solution','ia_objectifs','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
+      const fields = ['titre','codeProjet','dateDebut','nbEquipes','dureeSemaines','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','ia_probleme','ia_solution','ia_objectifs','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
       const out = {};
       fields.forEach(f => {
         const el = $('f_' + f);
