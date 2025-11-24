@@ -169,6 +169,7 @@ const COLOR_MAPPING = {
   demarche: "#76A5AF",
   phases: "#8E7CC3",
   phrase: "#F6B26B",
+  "#CCCCCC": "budgetTotal",
   deepseekModel: "#9DC3E6",
   llmTemperature: "#F4B183",
   llmTopP: "#B4C7E7",
@@ -1173,34 +1174,66 @@ function applyUpdatesToDoc_(docId, updates, options) {
         var val = normalizedUpdates[field];
         if (val != null && String(val).length) {
           var sVal = String(val);
-          safeDelete(textEl, i, j - 1);
-          safeInsert(textEl, i, sVal);
-          if (sVal.length > 0)
-            try {
-              safeSetBg(textEl, i, i + sVal.length - 1, null);
-            } catch (_) {}
+          var handledSpecial = false;
 
-          var afterIdx = i + sVal.length;
-          var thisTxt = textEl.getText();
-          if (afterIdx < thisTxt.length) {
-            var nextColor = colorAt(textEl, afterIdx);
-            if (nextColor && MAPS.colorToField[nextColor]) {
-              var beforeNext = thisTxt.charAt(afterIdx - 1) || "";
-              if (!isWs(beforeNext)) safeInsert(textEl, afterIdx, " ");
-            }
-          } else if (tIdx + 1 < texts.length) {
-            var nextEl = texts[tIdx + 1];
-            if (nextEl.getText().length > 0) {
-              var nextColor2 = colorAt(nextEl, 0);
-              if (nextColor2 && MAPS.colorToField[nextColor2])
-                safeInsert(nextEl, 0, " ");
+          if (field === "entrepriseLogo" && typeof sVal === "string" && /^https?:\/\//i.test(sVal)) {
+            try {
+              var response = UrlFetchApp.fetch(sVal);
+              var blob = response.getBlob();
+              var parent = textEl.getParent();
+
+              textEl.setText("");
+              try {
+                textEl.setBackgroundColor(null);
+              } catch (_) {}
+
+              var img = parent.asParagraph().insertInlineImage(0, blob);
+              img.setWidth(150).setHeight(150);
+              handledSpecial = true;
+              lastField = field;
+              lastT = tIdx;
+              lastEnd = i - 1;
+              i = textEl.getText().length;
+              continue;
+            } catch (err) {
+              sVal = "(Image introuvable)";
             }
           }
 
-          lastField = field;
-          lastT = tIdx;
-          lastEnd = i + sVal.length - 1;
-          i = lastEnd + 1;
+          if (typeof sVal === "string") {
+            sVal = sVal.replace(/\r\n/g, "\r").replace(/\n/g, "\r");
+          }
+
+          if (!handledSpecial) {
+            safeDelete(textEl, i, j - 1);
+            safeInsert(textEl, i, sVal);
+            if (sVal.length > 0)
+              try {
+                safeSetBg(textEl, i, i + sVal.length - 1, null);
+              } catch (_) {}
+
+            var afterIdx = i + sVal.length;
+            var thisTxt = textEl.getText();
+            if (afterIdx < thisTxt.length) {
+              var nextColor = colorAt(textEl, afterIdx);
+              if (nextColor && MAPS.colorToField[nextColor]) {
+                var beforeNext = thisTxt.charAt(afterIdx - 1) || "";
+                if (!isWs(beforeNext)) safeInsert(textEl, afterIdx, " ");
+              }
+            } else if (tIdx + 1 < texts.length) {
+              var nextEl = texts[tIdx + 1];
+              if (nextEl.getText().length > 0) {
+                var nextColor2 = colorAt(nextEl, 0);
+                if (nextColor2 && MAPS.colorToField[nextColor2])
+                  safeInsert(nextEl, 0, " ");
+              }
+            }
+
+            lastField = field;
+            lastT = tIdx;
+            lastEnd = i + sVal.length - 1;
+            i = lastEnd + 1;
+          }
         } else {
           safeDelete(textEl, i, j - 1);
           lastField = field;
@@ -1589,7 +1622,28 @@ function generateFullProposal(formData) {
 }
 
 function generateFromForm(formData) {
-  return generateFullProposal(formData);
+  try {
+    // --- DEBUT BLOC CALCUL BUDGET ---
+    // Règle : 20 000€ pour 24 semaines par équipe.
+    const nbEquipes = parseInt(formData.nbEquipes) || 1;
+    const dureeSemaines = parseInt(formData.dureeSemaines) || 24;
+
+    // Calcul : Coût hebdo * Durée * Nb Équipes
+    const coutParSemaineParEquipe = 20000 / 24;
+    const totalBudget = Math.round(coutParSemaineParEquipe * dureeSemaines * nbEquipes);
+
+    // Formatage (ex: "40 000 €")
+    formData.budgetTotal = new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      maximumFractionDigits: 0,
+    }).format(totalBudget);
+    // --- FIN BLOC CALCUL BUDGET ---
+
+    return generateFullProposal(formData);
+  } catch (e) {
+    return { success: false, error: String((e && e.message) || e) };
+  }
 }
 
 function tokensApprox(chars) {
