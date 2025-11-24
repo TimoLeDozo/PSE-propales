@@ -1147,6 +1147,8 @@ header .logo .icam-logo-custom {
                 <div class="field grid-span-2"><label for="f_titre">Titre *</label><input id="f_titre" type="text" placeholder="Optimisation flux entrepôt" required></div>
                 <div class="field"><label for="f_codeProjet">Code projet</label><input id="f_codeProjet" type="text" placeholder="144-16"></div>
                 <div class="field"><label for="f_dateDebut">Date début</label><input id="f_dateDebut" type="date"></div>
+                <div class="field"><label for="f_nbEquipes">Nb. Équipes</label><input id="f_nbEquipes" name="nbEquipes" type="number" value="1" min="1"></div>
+                <div class="field"><label for="f_dureeSemaines">Durée (Semaines)</label><input id="f_dureeSemaines" name="dureeSemaines" type="number" value="24" placeholder="Standard: 24"></div>
                 <div class="field"><label for="f_versionDoc">Version</label><input id="f_versionDoc" type="text" placeholder="V1"></div>
                 <div class="field"><label for="f_dureeProjet">Durée</label><input id="f_dureeProjet" type="text" placeholder="6 mois"></div>
                 <div class="field"><label for="f_thematique">Thématique</label><input id="f_thematique" type="text" placeholder="Logistique / Supply-chain"></div>
@@ -1961,7 +1963,7 @@ header .logo .icam-logo-custom {
     const integerFields = new Set(['llmMaxTokens']);
     const rawFields = new Set(['log']);
     function collectForm() {
-      const fields = ['titre','codeProjet','dateDebut','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','ia_probleme','ia_solution','ia_objectifs','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
+      const fields = ['titre','codeProjet','dateDebut','nbEquipes','dureeSemaines','versionDoc','dureeProjet','thematique','entrepriseNom','entrepriseAdresse','clientNom','clientFonction','clientEmail','clientTelephone','entrepriseLogo','ia_probleme','ia_solution','ia_objectifs','contexte','demarche','phases','phrase','deepseekModel','llmTemperature','llmTopP','llmMaxTokens','journalHorodatage','journalType','journalCours','log'];
       const out = {};
       fields.forEach(f => {
         const el = $('f_' + f);
