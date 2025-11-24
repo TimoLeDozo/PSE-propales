@@ -18,6 +18,8 @@ const PROMPT_TOKEN_LIMIT = 100000; // FIX: Limite serveur pour bloquer les promp
 const MIN_SECTION_CHAR_LENGTH = 50; // FIX: Longueur minimale exigée par section JSON pour éviter les réponses vides.
 const LLM_MAX_RETRIES = 3; // FIX: Nombre maximal de tentatives pour la stratégie de retry exponentiel DeepSeek.
 const LLM_BACKOFF_BASE_MS = 1000; // FIX: Base en millisecondes pour l'attente exponentielle 1s/2s/4s lors des erreurs réseau.
+const BUDGET_DAILY_RATE_EUR = 650; // FIX: Taux journalier de base utilisé pour l'estimation budgétaire.
+const BUDGET_DAYS_PER_WEEK = 5; // FIX: Hypothèse d'une semaine facturée sur 5 jours ouvrés.
 
 function safeMoveFileToFolder_(fileId, folderId) {
   if (!fileId || !folderId) return;
@@ -108,6 +110,30 @@ function parseDureeToWeeks_(dureeText) {
   return null;
 }
 
+function calculateBudgetEstimate_(teamCount, durationWeeks, options) { // FIX: Ajoute un calcul automatique du budget.
+  var opts = options || {};
+  var rate = typeof opts.dailyRate === "number" ? opts.dailyRate : BUDGET_DAILY_RATE_EUR;
+  var daysPerWeek = typeof opts.daysPerWeek === "number" ? opts.daysPerWeek : BUDGET_DAYS_PER_WEEK;
+
+  var team = parseFloat(teamCount);
+  var weeks = parseFloat(durationWeeks);
+  if (!isFinite(team) || !isFinite(weeks) || team <= 0 || weeks <= 0) {
+    return { amount: null, label: "" };
+  }
+
+  var total = team * weeks * daysPerWeek * rate;
+  var formatter = new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  });
+
+  return {
+    amount: total,
+    label: formatter.format(total) + " HT",
+  };
+}
+
 function extractJsonFromString_(raw) { // FIX: Ajoute un extracteur JSON pour nettoyer les réponses LLM.
   if (!raw || typeof raw !== 'string') return null; // FIX: Retourne null si l'entrée est invalide.
   const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/); // FIX: Cherche un bloc de code JSON ou un objet JSON.
@@ -164,6 +190,7 @@ const COLOR_MAPPING = {
   entrepriseNom: "#FFFF00",
   entrepriseAdresse: "#C9DAF8",
   entrepriseLogo: "#D9D9D9",
+  budget: "#CCCCCC",
   dureeProjet: "#3D85C6",
   contexte: "#A64D79",
   demarche: "#76A5AF",
@@ -213,6 +240,11 @@ function buildMaps_(raw) {
 var MAPS = buildMaps_(COLOR_MAPPING);
 
 // === Normalisation & diagnostics ===
+function normalizeDocLineBreaks_(text) {
+  if (text === null || text === undefined) return "";
+  return String(text).replace(/\r\n/g, "\r").replace(/\n/g, "\r");
+}
+
 function normalizeTemplateValue_(field, value) {
   if (field === "entrepriseLogo") {
     return value || "";
@@ -223,7 +255,7 @@ function normalizeTemplateValue_(field, value) {
   if (typeof value === "number") {
     return String(value);
   }
-  return String(value);
+  return normalizeDocLineBreaks_(value);
 }
 
 function normalizeUpdatesObject_(updates) {
@@ -1023,10 +1055,20 @@ function applyUpdatesToDoc_(docId, updates, options) {
                 Logger.log('📷 Logo URL externe: ' + valStr.substring(0, 50));
               }
 
-              t.getParent()
-                .asParagraph()
-                .insertInlineImage(0, blob)
-                .setWidth(120);
+              if (!t.getText() || !t.getText().trim()) {
+                try {
+                  t.setText('');
+                } catch (_) {}
+              }
+
+              var logo;
+              try {
+                logo = t.insertInlineImage(Math.max(0, s0), blob);
+              } catch (insertErr) {
+                logo = t.getParent().asParagraph().insertInlineImage(0, blob);
+              }
+
+              if (logo && logo.setWidth) logo.setWidth(120);
               Logger.log('✅ Logo inséré avec succès');
             } catch (err) {
               Logger.log('⚠️ Erreur insertion logo: ' + err.message);
@@ -1323,6 +1365,11 @@ function generateFullProposal(formData) {
 
     var totalWeeks = parseDureeToWeeks_(formData.dureeProjet);
     var weekInfo = totalWeeks ? " (soit environ " + totalWeeks + " semaines)" : "";
+    var budgetWeeks =
+      typeof formData.budgetDurationWeeks === "number" && isFinite(formData.budgetDurationWeeks)
+        ? formData.budgetDurationWeeks
+        : totalWeeks;
+    var budgetEstimate = calculateBudgetEstimate_(formData.teamCount, budgetWeeks);
 
     var brief = [
       "## Fiche de renseignements",
@@ -1332,6 +1379,9 @@ function generateFullProposal(formData) {
       "- **Objectifs du projet** : " + (formData.ia_objectifs || "Non spécifié"),
       "- **Thématique générale** : " + (formData.thematique || "Non spécifié"),
       "- **Durée estimée** : " + (formData.dureeProjet || "Non spécifié") + weekInfo,
+      budgetEstimate && budgetEstimate.label
+        ? "- **Budget estimé (auto)** : " + budgetEstimate.label
+        : "- **Budget estimé (auto)** : À affiner",
     ].join("\n");
 
     if (attachmentsContext) {
@@ -1506,6 +1556,7 @@ function generateFullProposal(formData) {
       demarche: formatDemarcheText_(sections.demarche) || "",
       phases: sections.phases || "",
       phrase: sections.phrase || "",
+      budget: budgetEstimate && budgetEstimate.label ? budgetEstimate.label : formData.budget,
     });
 
     var u = applyUpdatesToDoc_(copy.documentId, updates, {
