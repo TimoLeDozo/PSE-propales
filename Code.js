@@ -10,7 +10,7 @@
  * ============================================================ *****/
 
 // === CONFIG ===
-const TEMPLATE_DOC_ID = 'COLLE_TON_VRAI_ID_GOOGLE_DOC_ICI';
+const TEMPLATE_DOC_ID = '1syQF8bOYnU6sGOei8Co3r-BL4Aj-caDl6zKw7GcOT2I';
 const DESTINATION_FOLDER_ID = "1uK3jwE3CSq-wxBMweMVWyARGut0YITdJ";
 const UX_SUPPRESS_COMPANY_AFTER_CONTACT = true;
 const PROMPT_VERSION_TAG = "v2024.11"; // FIX: Ajout d'un identifiant de version pour tracer le prompt côté document final.
