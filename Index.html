@@ -441,13 +441,20 @@ header .logo .icam-logo-custom {
     }
     .generation-progress-message { color: var(--color-text-soft); }
     .generation-progress-percent {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
       font-variant-numeric: tabular-nums;
       font-weight: 600;
-      color: #ffffff;
+      color: rgba(255, 255, 255, 0.95);
+      z-index: 2;
+      font-size: 0.7rem;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     }
     .generation-progress-bar {
       position: relative;
-      height: 8px;
+      height: 20px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.08);
       overflow: hidden;
@@ -1281,9 +1288,9 @@ header .logo .icam-logo-custom {
                 <div class="generation-progress" id="generationProgress" aria-hidden="true">
                   <div class="generation-progress-header">
                     <span class="generation-progress-message" id="generationProgressMessage">Préparation…</span>
-                    <span class="generation-progress-percent" id="generationProgressPercent">0%</span>
                   </div>
                   <div class="generation-progress-bar" id="generationProgressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <span class="generation-progress-percent" id="generationProgressPercent">0%</span>
                     <div class="generation-progress-bar-fill" id="generationProgressFill"></div>
                   </div>
                 </div>
