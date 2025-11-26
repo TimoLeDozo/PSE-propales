@@ -108,11 +108,31 @@ function parseDureeToWeeks_(dureeText) {
   return null;
 }
 
-function extractJsonFromString_(raw) { // FIX: Ajoute un extracteur JSON pour nettoyer les réponses LLM.
+function extractJsonFromString_(raw) { // FIX: Extracteur JSON amélioré pour nettoyer les réponses LLM.
   if (!raw || typeof raw !== 'string') return null; // FIX: Retourne null si l'entrée est invalide.
-  const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/); // FIX: Cherche un bloc de code JSON ou un objet JSON.
-  return match ? (match[1] || match[2] || null) : null; // FIX: Retourne le contenu JSON trouvé ou null.
-} // FIX: Fin de l'extracteur JSON.
+
+  // Priorité 1: Extraire le contenu d'un bloc de code Markdown JSON. C'est souvent le plus propre.
+  let match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+
+  // Priorité 2: Trouver le JSON en se basant sur la première et dernière accolade.
+  // C'est plus robuste contre le texte conversationnel que l'IA peut ajouter avant ou après l'objet JSON.
+  const firstBrace = raw.indexOf('{');
+  const lastBrace = raw.lastIndexOf('}');
+
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const potentialJson = raw.substring(firstBrace, lastBrace + 1);
+    // On vérifie que la chaîne extraite est bien un objet JSON potentiel avant de la retourner.
+    // La validation finale se fera par JSON.parse() dans la fonction appelante.
+    if (potentialJson.trim().startsWith('{') && potentialJson.trim().endsWith('}')) {
+      return potentialJson;
+    }
+  }
+
+  return null; // Si aucune méthode ne fonctionne, on retourne null.
+} // FIX: Fin de l'extracteur JSON amélioré.
 
 function validateDeepSeekSections_(rawSections) { // FIX: Ajoute une validation stricte des sections JSON attendues.
   if (!rawSections || typeof rawSections !== "object") { // FIX: Refuse toute réponse qui n'est pas un objet JSON exploitable.
@@ -1394,7 +1414,7 @@ function generateFullProposal(formData) {
       "Tu es un consultant senior de l'Icam, un expert en ingénierie et stratégie industrielle. Ta mission est de rédiger une proposition commerciale percutante et sur mesure en réponse à un brief client. Tu ne te contentes pas de reformuler ; tu enrichis, tu contextualises et tu apportes une réelle valeur ajoutée en te basant sur ton expertise.\n\n" +
       "## Directives Clés\n" +
       "1.  **Persona & Ton** : Incarne un expert confiant, stratégique et orienté solution. Le ton doit être professionnel, précis et valoriser l'approche Icam (rigueur, pragmatisme, innovation).\n" +
-      "2.  **Format de Sortie Obligatoire** : Ta seule et unique réponse doit être un objet JSON valide. Aucun texte, commentaire ou markdown ne doit précéder ou suivre cet objet. La structure est non négociable : `{\"titre\": \"...\", \"contexte\": \"...\", \"demarche\": \"...\", \"phases\": \"...\", \"phrase\": \"...\"}`.\n" +
+      "2.  **Format de Sortie Obligatoire** : Ta seule et unique réponse doit être un objet JSON valide. Aucun texte, commentaire ou markdown ne doit précéder ou suivre cet objet. La structure est non négociable : `{\"titre\": \"...\", \"contexte\": \"...\", \"demarche\": \"...\", \"phases\": \"...\", \"phrase\": \"...\"}`. N'ajoute aucune explication, introduction ou conclusion en dehors du JSON.\n" +
       "3.  **Enrichissement du Contenu (Règle Critique)** : Ne te limite JAMAIS à une simple reformulation du brief. Utilise les informations fournies comme un tremplin. Approfondis chaque section avec des concepts d'ingénierie, des méthodologies reconnues (Lean, Six Sigma, Agile, etc. si pertinent) et des arguments stratégiques.\n" +
       "    -   `titre` : Améliore et reformule le titre fourni pour le rendre accrocheur, professionnel et aligné sur la problématique de l'entreprise (15-20 mots maximum, impactant et factuel).\n" +
       "    -   `contexte` : Va au-delà de la description du problème. Replace-le dans un contexte stratégique plus large pour l'entreprise (compétitivité, transformation numérique, excellence opérationnelle). Montre que tu comprends les enjeux business derrière la demande technique.\n" +
